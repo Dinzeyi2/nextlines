@@ -118,10 +118,16 @@ class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL tem
             "list_comprehension": "{var} = [{expression} for {loop_var} in {collection} if {condition}]",
             "filter_operation": "{var} = [item for item in {collection} if {condition}]",
             "map_operation": "{var} = [f(item) for item in {collection}]",
-            
+
             # Memory and Meta
             "dynamic_code": "{code}",
             "variable_deletion": "del {var}",
+            # Advanced Features
+            "class_inheritance": "class {child}({parent}):\n    pass",
+            "dunder_str_method": "class {class_name}:\n    def __str__(self):\n        return {expr}",
+            "raise_exception": "if {condition}:\n    raise {exception}",
+            "match_case": "match {expr}:\n    case {pattern}:\n        {action}",
+            "import_alias": "import {module} as {alias}",
         }
     
     def generate_code(self, template_key: str, **kwargs) -> str:
@@ -528,6 +534,12 @@ class NaturalLanguageExecutor:
             "execute_complex_data_transformation": ("complex_data_transformation", {"source": "source", "condition": "condition", "field": "field", "target": "target"}),
             "execute_advanced_data_processing": ("advanced_data_processing", {"collection": "collection", "condition": "condition", "operation": "operation", "result": "result"}),
             "execute_advanced_object_manipulation": ("advanced_object_manipulation", {"object": "object", "field1": "field1", "value1": "value1", "field2": "field2", "value2": "value2", "method": "method"}),
+            # Newly added advanced features
+            "execute_class_inheritance": ("class_inheritance", {"child": "child", "parent": "parent"}),
+            "execute_add_str_method": ("dunder_str_method", {"class_name": "class_name", "expr": "expr"}),
+            "execute_raise_exception": ("raise_exception", {"condition": "condition", "exception": "exception"}),
+            "execute_match_case": ("match_case", {"expr": "expr", "pattern": "pattern", "action": "action"}),
+            "execute_import_alias": ("import_alias", {"module": "module", "alias": "alias"}),
         }
         
         if template.execution_func in code_mapping:
@@ -991,6 +1003,16 @@ class NaturalLanguageExecutor:
                 {"name": ParameterType.IDENTIFIER}
             ),
             ExecutionTemplate(
+                "create a class {child} that inherits from {parent}",
+                "execute_class_inheritance",
+                {"child": ParameterType.IDENTIFIER, "parent": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "add a __str__ method to class {class_name} that returns {expr}",
+                "execute_add_str_method",
+                {"class_name": ParameterType.IDENTIFIER, "expr": ParameterType.EXPRESSION},
+            ),
+            ExecutionTemplate(
                 "add method {method} to class {class_name}",
                 "execute_add_method",
                 {"method": ParameterType.IDENTIFIER, "class_name": ParameterType.IDENTIFIER}
@@ -1080,6 +1102,11 @@ class NaturalLanguageExecutor:
                 "execute_try_catch",
                 {"action": ParameterType.STATEMENT}
             ),
+            ExecutionTemplate(
+                "raise a {exception} if {condition}",
+                "execute_raise_exception",
+                {"exception": ParameterType.IDENTIFIER, "condition": ParameterType.CONDITION},
+            ),
 
             # ===== FILE I/O (NEW) =====
             ExecutionTemplate(
@@ -1157,6 +1184,11 @@ class NaturalLanguageExecutor:
                 "from module {module} import {item}",
                 "execute_from_import",
                 {"module": ParameterType.IDENTIFIER, "item": ParameterType.IDENTIFIER}
+            ),
+            ExecutionTemplate(
+                "import {module} as {alias}",
+                "execute_import_alias",
+                {"module": ParameterType.IDENTIFIER, "alias": ParameterType.IDENTIFIER},
             ),
             ExecutionTemplate(
                 "use {func} from {module}",
@@ -1435,6 +1467,11 @@ class NaturalLanguageExecutor:
             ),
 
             # ===== COMPLEX CONTROL FLOW (NEW) =====
+            ExecutionTemplate(
+                "match {expr} case {pattern} do {action}",
+                "execute_match_case",
+                {"expr": ParameterType.EXPRESSION, "pattern": ParameterType.VALUE, "action": ParameterType.STATEMENT},
+            ),
             ExecutionTemplate(
                 "while {condition} do {action}",
                 "execute_while_loop",
@@ -2401,9 +2438,23 @@ class NaturalLanguageExecutor:
         
         if op in ops and ops[op](left, right):
             return self.execute_assignment(var, value)
-    
+
+    def execute_match_case(self, expr: str, pattern: str, action: str) -> str:
+        """Basic match-case execution"""
+        try:
+            local_vars = dict(self.context.variables)
+            value = eval(expr, {}, local_vars)
+            case_val = eval(pattern, {}, local_vars)
+            if value == case_val:
+                exec(action, {}, local_vars)
+                self.context.variables.update(local_vars)
+                return "✓ Match case executed"
+            return "✓ No match"
+        except Exception as e:
+            return f"✗ Error in match-case: {e}"
+
     # ===== EXECUTION FUNCTIONS FOR REMAINING 10% SIMULATION CASES (NEW) =====
-    
+
     def execute_add_method(self, method: str, class_name: str) -> str:
         """Add method to class - REAL PYTHON EXECUTION"""
         python_code = f"""
@@ -2546,7 +2597,17 @@ except Exception as e:
             return f"✓ {output}"
         else:
             return f"✗ Error importing: {result['error']}"
-    
+
+    def execute_import_alias(self, module: str, alias: str) -> str:
+        """Import module with alias - REAL PYTHON EXECUTION"""
+        python_code = f"""\n# Import module with alias\ntry:\n    import {module} as {alias}\n    print(f\"Successfully imported {module} as {alias}\")\nexcept ImportError:\n    print(f\"Module {module} not found\")\nexcept Exception as e:\n    print(f\"Error importing module: {{e}}\")\n"""
+        result = self.python_executor.execute_code(python_code)
+        if result["success"]:
+            output = result["output"] if result["output"] else f"Imported {module} as {alias}"
+            return f"✓ {output}"
+        else:
+            return f"✗ Error importing module: {result['error']}"
+
     def execute_list_modules(self) -> str:
         """List all modules - REAL PYTHON EXECUTION"""
         python_code = """
@@ -2909,6 +2970,30 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             return f"✗ Attribute {attr} not found on {obj_name}"
         return f"✗ Object {obj_name} not found"
 
+    def execute_class_inheritance(self, child: str, parent: str) -> str:
+        """Create a class with inheritance"""
+        class_def = {
+            "__parent__": parent,
+            "__init__": None,
+            "__methods__": {},
+            "__attributes__": {},
+        }
+        self.context.add_class(child, class_def)
+        return f"✓ Created class {child} inheriting from {parent}"
+
+    def execute_add_str_method(self, class_name: str, expr: str) -> str:
+        """Add __str__ method to class"""
+        if class_name in self.context.classes:
+            expr_code = expr
+            def _str(obj):
+                try:
+                    return str(eval(expr_code, {}, self.context.variables))
+                except Exception:
+                    return str(expr_code)
+            self.context.classes[class_name]["__str__"] = _str
+            return f"✓ Added __str__ to class {class_name}"
+        return f"✗ Class {class_name} not found"
+
     # ===== COMPLEX FUNCTIONS (NEW) =====
     def execute_complex_function_def(self, name: str, params: str) -> str:
         """Define function with parameters and return capability"""
@@ -3028,6 +3113,16 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
                 return f"✓ Try-catch successful: {result}"
         except Exception as e:
             return f"✓ Try-catch caught error: {str(e)} (handled gracefully)"
+
+    def execute_raise_exception(self, exception: str, condition: str) -> str:
+        """Raise an exception based on condition"""
+        try:
+            if eval(condition, {}, self.context.variables):
+                exc = eval(exception, globals(), self.context.variables)
+                raise exc
+            return f"✓ Condition '{condition}' was false"
+        except Exception as e:
+            return f"✓ Raised {exception}: {e}"
 
     # ===== FILE I/O (NEW) =====
     def execute_create_file(self, filename: str) -> str:
