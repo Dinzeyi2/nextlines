@@ -161,6 +161,13 @@ class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL tem
             "stratified_k_fold": "from sklearn.model_selection import StratifiedKFold\n{cv} = StratifiedKFold(n_splits={k}, shuffle={shuffle}, random_state={seed})",
             "repeated_k_fold": "from sklearn.model_selection import RepeatedKFold\n{cv} = RepeatedKFold(n_splits={k}, n_repeats={r}, random_state={seed})",
             "repeated_stratified_k_fold": "from sklearn.model_selection import RepeatedStratifiedKFold\n{cv} = RepeatedStratifiedKFold(n_splits={k}, n_repeats={r}, random_state={seed})",
+            "iterate_folds": "for {train_idx}, {val_idx} in {cv}.split({X}, {y}):\n    pass  # add training/eval code",
+            "iterate_folds_with_groups": "for {train_idx}, {val_idx} in {cv}.split({X}, {y}, groups={groups}):\n    pass  # add training/eval code",
+            "cross_val_score": "from sklearn.model_selection import cross_val_score\n{scores} = cross_val_score({model}, {X}, {y}, cv={cv}, scoring={scoring})",
+            "cross_val_predict": "from sklearn.model_selection import cross_val_predict\n{preds} = cross_val_predict({model}, {X}, cv={cv})",
+            "k_fold_labels_on_df": "{df}['{fold_col}'] = -1\nfor i, (tr, va) in enumerate({cv}.split({X}, {y})):\n    {df}.loc[{df}.index[va], '{fold_col}'] = i",
+            "stratified_k_fold_labels_on_df": "{df}['{fold_col}'] = -1\nfor i, (tr, va) in enumerate({cv}.split({X}, {y})):\n    {df}.loc[{df}.index[va], '{fold_col}'] = i",
+            "group_k_fold_labels_on_df": "{df}['{fold_col}'] = -1\nfor i, (tr, va) in enumerate({cv}.split({X}, {y}, groups={groups})):\n    {df}.loc[{df}.index[va], '{fold_col}'] = i",
             "load_csv": "import pandas as pd\n{df} = pd.read_csv({filename})",
             "show_head": "{df}.head({n})",
             "filter_rows": "{df} = {df}[{df}['{column}'] > {value}]",
@@ -668,6 +675,13 @@ class NaturalLanguageExecutor:
             "execute_stratified_k_fold": ("stratified_k_fold", {"cv": "cv", "k": "k", "shuffle": "shuffle", "seed": "seed"}),
             "execute_repeated_k_fold": ("repeated_k_fold", {"cv": "cv", "k": "k", "r": "r", "seed": "seed"}),
             "execute_repeated_stratified_k_fold": ("repeated_stratified_k_fold", {"cv": "cv", "k": "k", "r": "r", "seed": "seed"}),
+            "execute_iterate_folds": ("iterate_folds", {"cv": "cv", "X": "X", "y": "y", "train_idx": "train_idx", "val_idx": "val_idx"}),
+            "execute_iterate_folds_with_groups": ("iterate_folds_with_groups", {"cv": "cv", "X": "X", "y": "y", "groups": "groups", "train_idx": "train_idx", "val_idx": "val_idx"}),
+            "execute_cross_val_score": ("cross_val_score", {"model": "model", "X": "X", "y": "y", "cv": "cv", "scoring": "scoring", "scores": "scores"}),
+            "execute_cross_val_predict": ("cross_val_predict", {"model": "model", "X": "X", "cv": "cv", "preds": "preds"}),
+            "execute_k_fold_labels_on_df": ("k_fold_labels_on_df", {"df": "df", "cv": "cv", "X": "X", "y": "y", "fold_col": "fold_col"}),
+            "execute_stratified_k_fold_labels_on_df": ("stratified_k_fold_labels_on_df", {"df": "df", "cv": "cv", "X": "X", "y": "y", "fold_col": "fold_col"}),
+            "execute_group_k_fold_labels_on_df": ("group_k_fold_labels_on_df", {"df": "df", "cv": "cv", "X": "X", "y": "y", "groups": "groups", "fold_col": "fold_col"}),
             "execute_load_csv": ("load_csv", {"df": "df", "filename": "filename"}),
             "execute_show_head": ("show_head", {"df": "df", "n": "n"}),
             "execute_filter_rows": ("filter_rows", {"df": "df", "column": "column", "value": "value"}),
@@ -2334,6 +2348,41 @@ class NaturalLanguageExecutor:
                 "create repeated stratified k fold with k {k} and repeats {r} as {cv} and random state {seed}",
                 "execute_repeated_stratified_k_fold",
                 {"k": ParameterType.VALUE, "r": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER, "seed": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "for each split from {cv} on {X} and {y} produce {train_idx} and {val_idx}",
+                "execute_iterate_folds",
+                {"cv": ParameterType.IDENTIFIER, "X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "train_idx": ParameterType.IDENTIFIER, "val_idx": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "for each split from {cv} on {X} and {y} with groups {groups} produce {train_idx} and {val_idx}",
+                "execute_iterate_folds_with_groups",
+                {"cv": ParameterType.IDENTIFIER, "X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "groups": ParameterType.IDENTIFIER, "train_idx": ParameterType.IDENTIFIER, "val_idx": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "compute cross val score of {model} on {X} and {y} using {cv} with scoring {scoring} as {scores}",
+                "execute_cross_val_score",
+                {"model": ParameterType.IDENTIFIER, "X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "cv": ParameterType.IDENTIFIER, "scoring": ParameterType.VALUE, "scores": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "compute cross val predictions of {model} on {X} using {cv} as {preds}",
+                "execute_cross_val_predict",
+                {"model": ParameterType.IDENTIFIER, "X": ParameterType.IDENTIFIER, "cv": ParameterType.IDENTIFIER, "preds": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "add fold column {fold_col} to {df} using {cv} with features {X} and targets {y}",
+                "execute_k_fold_labels_on_df",
+                {"fold_col": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "cv": ParameterType.IDENTIFIER, "X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "add stratified fold column {fold_col} to {df} using {cv} with features {X} and targets {y}",
+                "execute_stratified_k_fold_labels_on_df",
+                {"fold_col": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "cv": ParameterType.IDENTIFIER, "X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "add group fold column {fold_col} to {df} using {cv} with features {X}, targets {y}, and groups {groups}",
+                "execute_group_k_fold_labels_on_df",
+                {"fold_col": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "cv": ParameterType.IDENTIFIER, "X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "groups": ParameterType.IDENTIFIER},
             ),
             ExecutionTemplate(
                 "load csv file {filename} into {df}",
@@ -4334,6 +4383,34 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
 
     def execute_repeated_stratified_k_fold(self, cv: str, k: str, r: str, seed: str) -> str:
         code = self.code_generator.generate_code("repeated_stratified_k_fold", cv=cv, k=k, r=r, seed=seed)
+        return self._execute_with_real_python(code)
+
+    def execute_iterate_folds(self, cv: str, X: str, y: str, train_idx: str, val_idx: str) -> str:
+        code = self.code_generator.generate_code("iterate_folds", cv=cv, X=X, y=y, train_idx=train_idx, val_idx=val_idx)
+        return self._execute_with_real_python(code)
+
+    def execute_iterate_folds_with_groups(self, cv: str, X: str, y: str, groups: str, train_idx: str, val_idx: str) -> str:
+        code = self.code_generator.generate_code("iterate_folds_with_groups", cv=cv, X=X, y=y, groups=groups, train_idx=train_idx, val_idx=val_idx)
+        return self._execute_with_real_python(code)
+
+    def execute_cross_val_score(self, model: str, X: str, y: str, cv: str, scoring: str, scores: str) -> str:
+        code = self.code_generator.generate_code("cross_val_score", model=model, X=X, y=y, cv=cv, scoring=scoring, scores=scores)
+        return self._execute_with_real_python(code)
+
+    def execute_cross_val_predict(self, model: str, X: str, cv: str, preds: str) -> str:
+        code = self.code_generator.generate_code("cross_val_predict", model=model, X=X, cv=cv, preds=preds)
+        return self._execute_with_real_python(code)
+
+    def execute_k_fold_labels_on_df(self, df: str, cv: str, X: str, y: str, fold_col: str) -> str:
+        code = self.code_generator.generate_code("k_fold_labels_on_df", df=df, cv=cv, X=X, y=y, fold_col=fold_col)
+        return self._execute_with_real_python(code)
+
+    def execute_stratified_k_fold_labels_on_df(self, df: str, cv: str, X: str, y: str, fold_col: str) -> str:
+        code = self.code_generator.generate_code("stratified_k_fold_labels_on_df", df=df, cv=cv, X=X, y=y, fold_col=fold_col)
+        return self._execute_with_real_python(code)
+
+    def execute_group_k_fold_labels_on_df(self, df: str, cv: str, X: str, y: str, groups: str, fold_col: str) -> str:
+        code = self.code_generator.generate_code("group_k_fold_labels_on_df", df=df, cv=cv, X=X, y=y, groups=groups, fold_col=fold_col)
         return self._execute_with_real_python(code)
 
     def execute_load_csv(self, filename: str, df: str) -> str:
