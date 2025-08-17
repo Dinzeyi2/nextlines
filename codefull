@@ -161,6 +161,12 @@ class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL tem
             "stratified_k_fold": "from sklearn.model_selection import StratifiedKFold\n{cv} = StratifiedKFold(n_splits={k}, shuffle={shuffle}, random_state={seed})",
             "repeated_k_fold": "from sklearn.model_selection import RepeatedKFold\n{cv} = RepeatedKFold(n_splits={k}, n_repeats={r}, random_state={seed})",
             "repeated_stratified_k_fold": "from sklearn.model_selection import RepeatedStratifiedKFold\n{cv} = RepeatedStratifiedKFold(n_splits={k}, n_repeats={r}, random_state={seed})",
+            "k_fold_split": "from sklearn.model_selection import KFold\n{cv} = KFold(n_splits={k}, shuffle={shuffle}, random_state={seed})\nfor {train_idx}, {val_idx} in {cv}.split({X}):\n    {X_train}, {X_val} = {X}.iloc[{train_idx}], {X}.iloc[{val_idx}]",
+            "stratified_k_fold_split": "from sklearn.model_selection import StratifiedKFold\n{cv} = StratifiedKFold(n_splits={k}, shuffle={shuffle}, random_state={seed})\nfor {train_idx}, {val_idx} in {cv}.split({X}, {y}):\n    {X_train}, {X_val} = {X}.iloc[{train_idx}], {X}.iloc[{val_idx}]\n    {y_train}, {y_val} = {y}.iloc[{train_idx}], {y}.iloc[{val_idx}]",
+            "time_series_split": "from sklearn.model_selection import TimeSeriesSplit\n{cv} = TimeSeriesSplit(n_splits={k})\nfor {train_idx}, {val_idx} in {cv}.split({X}):\n    {X_train}, {X_val} = {X}.iloc[{train_idx}], {X}.iloc[{val_idx}]",
+            "group_k_fold_split": "from sklearn.model_selection import GroupKFold\n{cv} = GroupKFold(n_splits={k})\nfor {train_idx}, {val_idx} in {cv}.split({X}, {y}, groups={groups}):\n    {X_train}, {X_val} = {X}.iloc[{train_idx}], {X}.iloc[{val_idx}]\n    {y_train}, {y_val} = {y}.iloc[{train_idx}], {y}.iloc[{val_idx}]",
+            "repeated_k_fold_split": "from sklearn.model_selection import RepeatedKFold\n{cv} = RepeatedKFold(n_splits={k}, n_repeats={r}, random_state={seed})\nfor {train_idx}, {val_idx} in {cv}.split({X}):\n    {X_train}, {X_val} = {X}.iloc[{train_idx}], {X}.iloc[{val_idx}]",
+            "bootstrap_sampling": "from sklearn.utils import resample\n{samples} = [resample({X}, replace=True, n_samples=len({X}), random_state=i) for i in range({r})]",
             "iterate_folds": "for {train_idx}, {val_idx} in {cv}.split({X}, {y}):\n    pass  # add training/eval code",
             "iterate_folds_with_groups": "for {train_idx}, {val_idx} in {cv}.split({X}, {y}, groups={groups}):\n    pass  # add training/eval code",
             "cross_val_score": "from sklearn.model_selection import cross_val_score\n{scores} = cross_val_score({model}, {X}, {y}, cv={cv}, scoring={scoring})",
@@ -675,6 +681,12 @@ class NaturalLanguageExecutor:
             "execute_stratified_k_fold": ("stratified_k_fold", {"cv": "cv", "k": "k", "shuffle": "shuffle", "seed": "seed"}),
             "execute_repeated_k_fold": ("repeated_k_fold", {"cv": "cv", "k": "k", "r": "r", "seed": "seed"}),
             "execute_repeated_stratified_k_fold": ("repeated_stratified_k_fold", {"cv": "cv", "k": "k", "r": "r", "seed": "seed"}),
+            "execute_k_fold_split": ("k_fold_split", {"cv": "cv", "k": "k", "shuffle": "shuffle", "seed": "seed", "X": "X", "X_train": "X_train", "X_val": "X_val", "train_idx": "train_idx", "val_idx": "val_idx"}),
+            "execute_stratified_k_fold_split": ("stratified_k_fold_split", {"cv": "cv", "k": "k", "shuffle": "shuffle", "seed": "seed", "X": "X", "y": "y", "X_train": "X_train", "X_val": "X_val", "y_train": "y_train", "y_val": "y_val", "train_idx": "train_idx", "val_idx": "val_idx"}),
+            "execute_time_series_split": ("time_series_split", {"cv": "cv", "k": "k", "X": "X", "X_train": "X_train", "X_val": "X_val", "train_idx": "train_idx", "val_idx": "val_idx"}),
+            "execute_group_k_fold_split": ("group_k_fold_split", {"cv": "cv", "k": "k", "X": "X", "y": "y", "groups": "groups", "X_train": "X_train", "X_val": "X_val", "y_train": "y_train", "y_val": "y_val", "train_idx": "train_idx", "val_idx": "val_idx"}),
+            "execute_repeated_k_fold_split": ("repeated_k_fold_split", {"cv": "cv", "k": "k", "r": "r", "seed": "seed", "X": "X", "X_train": "X_train", "X_val": "X_val", "train_idx": "train_idx", "val_idx": "val_idx"}),
+            "execute_bootstrap_sampling": ("bootstrap_sampling", {"samples": "samples", "X": "X", "r": "r"}),
             "execute_iterate_folds": ("iterate_folds", {"cv": "cv", "X": "X", "y": "y", "train_idx": "train_idx", "val_idx": "val_idx"}),
             "execute_iterate_folds_with_groups": ("iterate_folds_with_groups", {"cv": "cv", "X": "X", "y": "y", "groups": "groups", "train_idx": "train_idx", "val_idx": "val_idx"}),
             "execute_cross_val_score": ("cross_val_score", {"model": "model", "X": "X", "y": "y", "cv": "cv", "scoring": "scoring", "scores": "scores"}),
@@ -2348,6 +2360,36 @@ class NaturalLanguageExecutor:
                 "create repeated stratified k fold with k {k} and repeats {r} as {cv} and random state {seed}",
                 "execute_repeated_stratified_k_fold",
                 {"k": ParameterType.VALUE, "r": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER, "seed": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "create k fold splits of {X} with k {k} as {cv} and shuffle {shuffle} and random state {seed} producing {X_train}, {X_val}, {train_idx}, {val_idx}",
+                "execute_k_fold_split",
+                {"X": ParameterType.IDENTIFIER, "k": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER, "shuffle": ParameterType.VALUE, "seed": ParameterType.VALUE, "X_train": ParameterType.IDENTIFIER, "X_val": ParameterType.IDENTIFIER, "train_idx": ParameterType.IDENTIFIER, "val_idx": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create stratified k fold splits of {X} and {y} with k {k} as {cv} and shuffle {shuffle} and random state {seed} producing {X_train}, {X_val}, {y_train}, {y_val}, {train_idx}, {val_idx}",
+                "execute_stratified_k_fold_split",
+                {"X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "k": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER, "shuffle": ParameterType.VALUE, "seed": ParameterType.VALUE, "X_train": ParameterType.IDENTIFIER, "X_val": ParameterType.IDENTIFIER, "y_train": ParameterType.IDENTIFIER, "y_val": ParameterType.IDENTIFIER, "train_idx": ParameterType.IDENTIFIER, "val_idx": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create time series split of {X} with {k} folds as {cv} producing {X_train}, {X_val}, {train_idx}, {val_idx}",
+                "execute_time_series_split",
+                {"X": ParameterType.IDENTIFIER, "k": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER, "X_train": ParameterType.IDENTIFIER, "X_val": ParameterType.IDENTIFIER, "train_idx": ParameterType.IDENTIFIER, "val_idx": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create group k fold splits of {X} and {y} with groups {groups} and k {k} as {cv} producing {X_train}, {X_val}, {y_train}, {y_val}, {train_idx}, {val_idx}",
+                "execute_group_k_fold_split",
+                {"X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "groups": ParameterType.IDENTIFIER, "k": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER, "X_train": ParameterType.IDENTIFIER, "X_val": ParameterType.IDENTIFIER, "y_train": ParameterType.IDENTIFIER, "y_val": ParameterType.IDENTIFIER, "train_idx": ParameterType.IDENTIFIER, "val_idx": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create repeated k fold splits of {X} with k {k} and repeats {r} as {cv} and random state {seed} producing {X_train}, {X_val}, {train_idx}, {val_idx}",
+                "execute_repeated_k_fold_split",
+                {"X": ParameterType.IDENTIFIER, "k": ParameterType.VALUE, "r": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER, "seed": ParameterType.VALUE, "X_train": ParameterType.IDENTIFIER, "X_val": ParameterType.IDENTIFIER, "train_idx": ParameterType.IDENTIFIER, "val_idx": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "bootstrap sample {X} {r} times as {samples}",
+                "execute_bootstrap_sampling",
+                {"X": ParameterType.IDENTIFIER, "r": ParameterType.VALUE, "samples": ParameterType.IDENTIFIER},
             ),
             ExecutionTemplate(
                 "for each split from {cv} on {X} and {y} produce {train_idx} and {val_idx}",
@@ -4320,46 +4362,81 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
 
     # ===== Data Science & Machine Learning =====
     def execute_train_test_split(self, X: str, y: str, X_train: str, X_test: str, y_train: str, y_test: str, test_size: str, seed: str) -> str:
+        test_size = test_size or "0.2"
+        seed = seed or "42"
+
         code = self.code_generator.generate_code(
             "train_test_split", X=X, y=y, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, test_size=test_size, seed=seed
         )
         return self._execute_with_real_python(code)
 
     def execute_train_val_test_split(self, X: str, y: str, X_temp: str, X_test: str, y_temp_train: str, y_test: str, test_size: str, seed: str, X_train: str, X_val: str, y_train: str, y_val: str, val_size: str, seed2: str) -> str:
+        test_size = test_size or "0.2"
+        seed = seed or "42"
+        val_size = val_size or "0.2"
+        seed2 = seed2 or "42"
+
         code = self.code_generator.generate_code(
             "train_val_test_split", X=X, y=y, X_temp=X_temp, X_test=X_test, y_temp_train=y_temp_train, y_test=y_test, test_size=test_size, seed=seed, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val, val_size=val_size, seed2=seed2
         )
         return self._execute_with_real_python(code)
 
     def execute_stratified_train_test_split(self, X: str, y: str, X_train: str, X_test: str, y_train: str, y_test: str, test_size: str, seed: str) -> str:
+        if not y:
+            return '# Error: y is required for stratified operations'
+
+        test_size = test_size or "0.2"
+        seed = seed or "42"
+
         code = self.code_generator.generate_code(
             "stratified_train_test_split", X=X, y=y, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, test_size=test_size, seed=seed
         )
         return self._execute_with_real_python(code)
 
     def execute_stratified_train_val_test_split(self, X: str, y: str, X_temp: str, X_test: str, y_temp_train: str, y_test: str, test_size: str, seed: str, X_train: str, X_val: str, y_train: str, y_val: str, val_size: str, seed2: str) -> str:
+        if not y:
+            return '# Error: y is required for stratified operations'
+
+        test_size = test_size or "0.2"
+        seed = seed or "42"
+        val_size = val_size or "0.2"
+        seed2 = seed2 or "42"
+
         code = self.code_generator.generate_code(
             "stratified_train_val_test_split", X=X, y=y, X_temp=X_temp, X_test=X_test, y_temp_train=y_temp_train, y_test=y_test, test_size=test_size, seed=seed, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val, val_size=val_size, seed2=seed2
         )
         return self._execute_with_real_python(code)
 
     def execute_stratify_by_columns_split(self, y_strat: str, df: str, cols: str, X: str, y: str, X_train: str, X_test: str, y_train: str, y_test: str, test_size: str, seed: str) -> str:
+        if not y:
+            return '# Error: y is required for stratified operations'
+
+        test_size = test_size or "0.2"
+        seed = seed or "42"
+
         code = self.code_generator.generate_code(
             "stratify_by_columns_split", y_strat=y_strat, df=df, cols=cols, X=X, y=y, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, test_size=test_size, seed=seed
         )
         return self._execute_with_real_python(code)
 
     def execute_group_train_test_split(self, X: str, y: str, groups: str, X_train: str, X_test: str, y_train: str, y_test: str, train_idx: str, test_idx: str, test_size: str, seed: str) -> str:
+        test_size = test_size or "0.2"
+        seed = seed or "42"
+
         code = self.code_generator.generate_code(
             "group_train_test_split", X=X, y=y, groups=groups, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, train_idx=train_idx, test_idx=test_idx, test_size=test_size, seed=seed
         )
         return self._execute_with_real_python(code)
 
     def execute_group_k_fold(self, cv: str, k: str) -> str:
+        k = k or "5"
+
         code = self.code_generator.generate_code("group_k_fold", cv=cv, k=k)
         return self._execute_with_real_python(code)
 
     def execute_time_series_k_fold(self, cv: str, k: str) -> str:
+        k = k or "5"
+
         code = self.code_generator.generate_code("time_series_k_fold", cv=cv, k=k)
         return self._execute_with_real_python(code)
 
@@ -4370,19 +4447,80 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
         return self._execute_with_real_python(code)
 
     def execute_k_fold(self, cv: str, k: str, shuffle: str, seed: str) -> str:
+        k = k or "5"
+        shuffle = shuffle or "True"
+        seed = seed or "42"
+
         code = self.code_generator.generate_code("k_fold", cv=cv, k=k, shuffle=shuffle, seed=seed)
         return self._execute_with_real_python(code)
 
     def execute_stratified_k_fold(self, cv: str, k: str, shuffle: str, seed: str) -> str:
+        k = k or "5"
+        shuffle = shuffle or "True"
+        seed = seed or "42"
+
         code = self.code_generator.generate_code("stratified_k_fold", cv=cv, k=k, shuffle=shuffle, seed=seed)
         return self._execute_with_real_python(code)
 
     def execute_repeated_k_fold(self, cv: str, k: str, r: str, seed: str) -> str:
+        k = k or "5"
+        r = r or "10"
+        seed = seed or "42"
+
         code = self.code_generator.generate_code("repeated_k_fold", cv=cv, k=k, r=r, seed=seed)
         return self._execute_with_real_python(code)
 
     def execute_repeated_stratified_k_fold(self, cv: str, k: str, r: str, seed: str) -> str:
+        k = k or "5"
+        r = r or "10"
+        seed = seed or "42"
+
         code = self.code_generator.generate_code("repeated_stratified_k_fold", cv=cv, k=k, r=r, seed=seed)
+        return self._execute_with_real_python(code)
+
+    def execute_k_fold_split(self, cv: str, k: str, shuffle: str, seed: str, X: str, X_train: str, X_val: str, train_idx: str, val_idx: str) -> str:
+        k = k or "5"
+        shuffle = shuffle or "True"
+        seed = seed or "42"
+
+        code = self.code_generator.generate_code("k_fold_split", cv=cv, k=k, shuffle=shuffle, seed=seed, X=X, X_train=X_train, X_val=X_val, train_idx=train_idx, val_idx=val_idx)
+        return self._execute_with_real_python(code)
+
+    def execute_stratified_k_fold_split(self, cv: str, k: str, shuffle: str, seed: str, X: str, y: str, X_train: str, X_val: str, y_train: str, y_val: str, train_idx: str, val_idx: str) -> str:
+        if not y:
+            return '# Error: y is required for stratified operations'
+
+        k = k or "5"
+        shuffle = shuffle or "True"
+        seed = seed or "42"
+
+        code = self.code_generator.generate_code("stratified_k_fold_split", cv=cv, k=k, shuffle=shuffle, seed=seed, X=X, y=y, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val, train_idx=train_idx, val_idx=val_idx)
+        return self._execute_with_real_python(code)
+
+    def execute_time_series_split(self, cv: str, k: str, X: str, X_train: str, X_val: str, train_idx: str, val_idx: str) -> str:
+        k = k or "5"
+
+        code = self.code_generator.generate_code("time_series_split", cv=cv, k=k, X=X, X_train=X_train, X_val=X_val, train_idx=train_idx, val_idx=val_idx)
+        return self._execute_with_real_python(code)
+
+    def execute_group_k_fold_split(self, cv: str, k: str, X: str, y: str, groups: str, X_train: str, X_val: str, y_train: str, y_val: str, train_idx: str, val_idx: str) -> str:
+        k = k or "5"
+
+        code = self.code_generator.generate_code("group_k_fold_split", cv=cv, k=k, X=X, y=y, groups=groups, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val, train_idx=train_idx, val_idx=val_idx)
+        return self._execute_with_real_python(code)
+
+    def execute_repeated_k_fold_split(self, cv: str, k: str, r: str, seed: str, X: str, X_train: str, X_val: str, train_idx: str, val_idx: str) -> str:
+        k = k or "5"
+        r = r or "10"
+        seed = seed or "42"
+
+        code = self.code_generator.generate_code("repeated_k_fold_split", cv=cv, k=k, r=r, seed=seed, X=X, X_train=X_train, X_val=X_val, train_idx=train_idx, val_idx=val_idx)
+        return self._execute_with_real_python(code)
+
+    def execute_bootstrap_sampling(self, samples: str, X: str, r: str) -> str:
+        r = r or "100"
+
+        code = self.code_generator.generate_code("bootstrap_sampling", samples=samples, X=X, r=r)
         return self._execute_with_real_python(code)
 
     def execute_iterate_folds(self, cv: str, X: str, y: str, train_idx: str, val_idx: str) -> str:
