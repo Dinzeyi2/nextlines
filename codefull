@@ -148,6 +148,19 @@ class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL tem
             "try_finally": "try:\n    {action}\nfinally:\n    {cleanup}",
 
             # Data Science & ML
+            "train_test_split": "from sklearn.model_selection import train_test_split\n{X_train}, {X_test}, {y_train}, {y_test} = train_test_split({X}, {y}, test_size={test_size}, random_state={seed})",
+            "train_val_test_split": "from sklearn.model_selection import train_test_split\n{X_temp}, {X_test}, {y_temp_train}, {y_test} = train_test_split({X}, {y}, test_size={test_size}, random_state={seed})\n{X_train}, {X_val}, {y_train}, {y_val} = train_test_split({X_temp}, {y_temp_train}, test_size={val_size}, random_state={seed2})",
+            "stratified_train_test_split": "from sklearn.model_selection import train_test_split\n{X_train}, {X_test}, {y_train}, {y_test} = train_test_split({X}, {y}, test_size={test_size}, random_state={seed}, stratify={y})",
+            "stratified_train_val_test_split": "from sklearn.model_selection import train_test_split\n{X_temp}, {X_test}, {y_temp_train}, {y_test} = train_test_split({X}, {y}, test_size={test_size}, random_state={seed}, stratify={y})\n{X_train}, {X_val}, {y_train}, {y_val} = train_test_split({X_temp}, {y_temp_train}, test_size={val_size}, random_state={seed2}, stratify={y_temp_train})",
+            "stratify_by_columns_split": "{y_strat} = {df}[{cols}].astype(str).agg('_'.join, axis=1)\nfrom sklearn.model_selection import train_test_split\n{X_train}, {X_test}, {y_train}, {y_test} = train_test_split({X}, {y}, test_size={test_size}, random_state={seed}, stratify={y_strat})",
+            "group_train_test_split": "from sklearn.model_selection import GroupShuffleSplit\n_gss = GroupShuffleSplit(n_splits=1, test_size={test_size}, random_state={seed})\n{train_idx}, {test_idx} = next(_gss.split({X}, {y}, groups={groups}))\n{X_train}, {X_test} = {X}.iloc[{train_idx}], {X}.iloc[{test_idx}]\n{y_train}, {y_test} = {y}.iloc[{train_idx}], {y}.iloc[{test_idx}]",
+            "group_k_fold": "from sklearn.model_selection import GroupKFold\n{cv} = GroupKFold(n_splits={k})",
+            "time_series_k_fold": "from sklearn.model_selection import TimeSeriesSplit\n{cv} = TimeSeriesSplit(n_splits={k})",
+            "time_based_split": "{X_train}, {X_test} = {X}.iloc[:{cut}], {X}.iloc[{cut}:]\n{y_train}, {y_test} = {y}.iloc[:{cut}], {y}.iloc[{cut}:]",
+            "k_fold": "from sklearn.model_selection import KFold\n{cv} = KFold(n_splits={k}, shuffle={shuffle}, random_state={seed})",
+            "stratified_k_fold": "from sklearn.model_selection import StratifiedKFold\n{cv} = StratifiedKFold(n_splits={k}, shuffle={shuffle}, random_state={seed})",
+            "repeated_k_fold": "from sklearn.model_selection import RepeatedKFold\n{cv} = RepeatedKFold(n_splits={k}, n_repeats={r}, random_state={seed})",
+            "repeated_stratified_k_fold": "from sklearn.model_selection import RepeatedStratifiedKFold\n{cv} = RepeatedStratifiedKFold(n_splits={k}, n_repeats={r}, random_state={seed})",
             "load_csv": "import pandas as pd\n{df} = pd.read_csv({filename})",
             "show_head": "{df}.head({n})",
             "filter_rows": "{df} = {df}[{df}['{column}'] > {value}]",
@@ -642,6 +655,19 @@ class NaturalLanguageExecutor:
             "execute_import_alias": ("import_alias", {"module": "module", "alias": "alias"}),
 
             # Data Science & ML
+            "execute_train_test_split": ("train_test_split", {"X": "X", "y": "y", "X_train": "X_train", "X_test": "X_test", "y_train": "y_train", "y_test": "y_test", "test_size": "test_size", "seed": "seed"}),
+            "execute_train_val_test_split": ("train_val_test_split", {"X": "X", "y": "y", "X_temp": "X_temp", "X_test": "X_test", "y_temp_train": "y_temp_train", "y_test": "y_test", "test_size": "test_size", "seed": "seed", "X_train": "X_train", "X_val": "X_val", "y_train": "y_train", "y_val": "y_val", "val_size": "val_size", "seed2": "seed2"}),
+            "execute_stratified_train_test_split": ("stratified_train_test_split", {"X": "X", "y": "y", "X_train": "X_train", "X_test": "X_test", "y_train": "y_train", "y_test": "y_test", "test_size": "test_size", "seed": "seed"}),
+            "execute_stratified_train_val_test_split": ("stratified_train_val_test_split", {"X": "X", "y": "y", "X_temp": "X_temp", "X_test": "X_test", "y_temp_train": "y_temp_train", "y_test": "y_test", "test_size": "test_size", "seed": "seed", "X_train": "X_train", "X_val": "X_val", "y_train": "y_train", "y_val": "y_val", "val_size": "val_size", "seed2": "seed2"}),
+            "execute_stratify_by_columns_split": ("stratify_by_columns_split", {"y_strat": "y_strat", "df": "df", "cols": "cols", "X": "X", "y": "y", "X_train": "X_train", "X_test": "X_test", "y_train": "y_train", "y_test": "y_test", "test_size": "test_size", "seed": "seed"}),
+            "execute_group_train_test_split": ("group_train_test_split", {"X": "X", "y": "y", "groups": "groups", "train_idx": "train_idx", "test_idx": "test_idx", "test_size": "test_size", "seed": "seed", "X_train": "X_train", "X_test": "X_test", "y_train": "y_train", "y_test": "y_test"}),
+            "execute_group_k_fold": ("group_k_fold", {"cv": "cv", "k": "k"}),
+            "execute_time_series_k_fold": ("time_series_k_fold", {"cv": "cv", "k": "k"}),
+            "execute_time_based_split": ("time_based_split", {"X": "X", "y": "y", "cut": "cut", "X_train": "X_train", "X_test": "X_test", "y_train": "y_train", "y_test": "y_test"}),
+            "execute_k_fold": ("k_fold", {"cv": "cv", "k": "k", "shuffle": "shuffle", "seed": "seed"}),
+            "execute_stratified_k_fold": ("stratified_k_fold", {"cv": "cv", "k": "k", "shuffle": "shuffle", "seed": "seed"}),
+            "execute_repeated_k_fold": ("repeated_k_fold", {"cv": "cv", "k": "k", "r": "r", "seed": "seed"}),
+            "execute_repeated_stratified_k_fold": ("repeated_stratified_k_fold", {"cv": "cv", "k": "k", "r": "r", "seed": "seed"}),
             "execute_load_csv": ("load_csv", {"df": "df", "filename": "filename"}),
             "execute_show_head": ("show_head", {"df": "df", "n": "n"}),
             "execute_filter_rows": ("filter_rows", {"df": "df", "column": "column", "value": "value"}),
@@ -2239,6 +2265,76 @@ class NaturalLanguageExecutor:
             ),
 
             # ===== DATA SCIENCE & MACHINE LEARNING =====
+            ExecutionTemplate(
+                "split {X} and {y} into {X_train}, {X_test}, {y_train}, {y_test} with test size {test_size} and random state {seed}",
+                "execute_train_test_split",
+                {"X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "X_train": ParameterType.IDENTIFIER, "X_test": ParameterType.IDENTIFIER, "y_train": ParameterType.IDENTIFIER, "y_test": ParameterType.IDENTIFIER, "test_size": ParameterType.VALUE, "seed": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "split {X} and {y} into {X_temp}, {X_test}, {y_temp_train}, {y_test} with test size {test_size} and random state {seed}; then split {X_temp} and {y_temp_train} into {X_train}, {X_val}, {y_train}, {y_val} with val size {val_size} and random state {seed2}",
+                "execute_train_val_test_split",
+                {"X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "X_temp": ParameterType.IDENTIFIER, "X_test": ParameterType.IDENTIFIER, "y_temp_train": ParameterType.IDENTIFIER, "y_test": ParameterType.IDENTIFIER, "test_size": ParameterType.VALUE, "seed": ParameterType.VALUE, "X_train": ParameterType.IDENTIFIER, "X_val": ParameterType.IDENTIFIER, "y_train": ParameterType.IDENTIFIER, "y_val": ParameterType.IDENTIFIER, "val_size": ParameterType.VALUE, "seed2": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "stratified split {X} and {y} into {X_train}, {X_test}, {y_train}, {y_test} with test size {test_size} and random state {seed}",
+                "execute_stratified_train_test_split",
+                {"X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "X_train": ParameterType.IDENTIFIER, "X_test": ParameterType.IDENTIFIER, "y_train": ParameterType.IDENTIFIER, "y_test": ParameterType.IDENTIFIER, "test_size": ParameterType.VALUE, "seed": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "stratified split {X} and {y} into {X_temp}, {X_test}, {y_temp_train}, {y_test} with test size {test_size} and random state {seed}; then stratified split {X_temp} and {y_temp_train} into {X_train}, {X_val}, {y_train}, {y_val} with val size {val_size} and random state {seed2}",
+                "execute_stratified_train_val_test_split",
+                {"X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "X_temp": ParameterType.IDENTIFIER, "X_test": ParameterType.IDENTIFIER, "y_temp_train": ParameterType.IDENTIFIER, "y_test": ParameterType.IDENTIFIER, "test_size": ParameterType.VALUE, "seed": ParameterType.VALUE, "X_train": ParameterType.IDENTIFIER, "X_val": ParameterType.IDENTIFIER, "y_train": ParameterType.IDENTIFIER, "y_val": ParameterType.IDENTIFIER, "val_size": ParameterType.VALUE, "seed2": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "create stratify labels {y_strat} from columns {cols} in {df}; then stratified split {X} and {y} into {X_train}, {X_test}, {y_train}, {y_test} using {y_strat} with test size {test_size} and random state {seed}",
+                "execute_stratify_by_columns_split",
+                {"y_strat": ParameterType.IDENTIFIER, "cols": ParameterType.COLLECTION, "df": ParameterType.IDENTIFIER, "X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "X_train": ParameterType.IDENTIFIER, "X_test": ParameterType.IDENTIFIER, "y_train": ParameterType.IDENTIFIER, "y_test": ParameterType.IDENTIFIER, "test_size": ParameterType.VALUE, "seed": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "group split {X} and {y} by groups {groups} into {X_train}, {X_test}, {y_train}, {y_test}, {train_idx}, {test_idx} with test size {test_size} and random state {seed}",
+                "execute_group_train_test_split",
+                {"X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "groups": ParameterType.IDENTIFIER, "X_train": ParameterType.IDENTIFIER, "X_test": ParameterType.IDENTIFIER, "y_train": ParameterType.IDENTIFIER, "y_test": ParameterType.IDENTIFIER, "train_idx": ParameterType.IDENTIFIER, "test_idx": ParameterType.IDENTIFIER, "test_size": ParameterType.VALUE, "seed": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "create group k fold with k {k} using groups {groups} as {cv}",
+                "execute_group_k_fold",
+                {"k": ParameterType.VALUE, "groups": ParameterType.IDENTIFIER, "cv": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create group k fold with k {k} as {cv}",
+                "execute_group_k_fold",
+                {"k": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create time series split with {k} folds as {cv}",
+                "execute_time_series_k_fold",
+                {"k": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "time split {X} and {y} at index {cut} into {X_train}, {X_test}, {y_train}, {y_test}",
+                "execute_time_based_split",
+                {"X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "cut": ParameterType.VALUE, "X_train": ParameterType.IDENTIFIER, "X_test": ParameterType.IDENTIFIER, "y_train": ParameterType.IDENTIFIER, "y_test": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create k fold with k {k} as {cv} and shuffle {shuffle} with random state {seed}",
+                "execute_k_fold",
+                {"k": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER, "shuffle": ParameterType.VALUE, "seed": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "create stratified k fold with k {k} as {cv} and shuffle {shuffle} with random state {seed}",
+                "execute_stratified_k_fold",
+                {"k": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER, "shuffle": ParameterType.VALUE, "seed": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "create repeated k fold with k {k} and repeats {r} as {cv} and random state {seed}",
+                "execute_repeated_k_fold",
+                {"k": ParameterType.VALUE, "r": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER, "seed": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "create repeated stratified k fold with k {k} and repeats {r} as {cv} and random state {seed}",
+                "execute_repeated_stratified_k_fold",
+                {"k": ParameterType.VALUE, "r": ParameterType.VALUE, "cv": ParameterType.IDENTIFIER, "seed": ParameterType.VALUE},
+            ),
             ExecutionTemplate(
                 "load csv file {filename} into {df}",
                 "execute_load_csv",
@@ -4174,6 +4270,72 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
         return self._execute_with_real_python(code)
 
     # ===== Data Science & Machine Learning =====
+    def execute_train_test_split(self, X: str, y: str, X_train: str, X_test: str, y_train: str, y_test: str, test_size: str, seed: str) -> str:
+        code = self.code_generator.generate_code(
+            "train_test_split", X=X, y=y, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, test_size=test_size, seed=seed
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_train_val_test_split(self, X: str, y: str, X_temp: str, X_test: str, y_temp_train: str, y_test: str, test_size: str, seed: str, X_train: str, X_val: str, y_train: str, y_val: str, val_size: str, seed2: str) -> str:
+        code = self.code_generator.generate_code(
+            "train_val_test_split", X=X, y=y, X_temp=X_temp, X_test=X_test, y_temp_train=y_temp_train, y_test=y_test, test_size=test_size, seed=seed, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val, val_size=val_size, seed2=seed2
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_stratified_train_test_split(self, X: str, y: str, X_train: str, X_test: str, y_train: str, y_test: str, test_size: str, seed: str) -> str:
+        code = self.code_generator.generate_code(
+            "stratified_train_test_split", X=X, y=y, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, test_size=test_size, seed=seed
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_stratified_train_val_test_split(self, X: str, y: str, X_temp: str, X_test: str, y_temp_train: str, y_test: str, test_size: str, seed: str, X_train: str, X_val: str, y_train: str, y_val: str, val_size: str, seed2: str) -> str:
+        code = self.code_generator.generate_code(
+            "stratified_train_val_test_split", X=X, y=y, X_temp=X_temp, X_test=X_test, y_temp_train=y_temp_train, y_test=y_test, test_size=test_size, seed=seed, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val, val_size=val_size, seed2=seed2
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_stratify_by_columns_split(self, y_strat: str, df: str, cols: str, X: str, y: str, X_train: str, X_test: str, y_train: str, y_test: str, test_size: str, seed: str) -> str:
+        code = self.code_generator.generate_code(
+            "stratify_by_columns_split", y_strat=y_strat, df=df, cols=cols, X=X, y=y, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, test_size=test_size, seed=seed
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_group_train_test_split(self, X: str, y: str, groups: str, X_train: str, X_test: str, y_train: str, y_test: str, train_idx: str, test_idx: str, test_size: str, seed: str) -> str:
+        code = self.code_generator.generate_code(
+            "group_train_test_split", X=X, y=y, groups=groups, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, train_idx=train_idx, test_idx=test_idx, test_size=test_size, seed=seed
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_group_k_fold(self, cv: str, k: str) -> str:
+        code = self.code_generator.generate_code("group_k_fold", cv=cv, k=k)
+        return self._execute_with_real_python(code)
+
+    def execute_time_series_k_fold(self, cv: str, k: str) -> str:
+        code = self.code_generator.generate_code("time_series_k_fold", cv=cv, k=k)
+        return self._execute_with_real_python(code)
+
+    def execute_time_based_split(self, X: str, y: str, cut: str, X_train: str, X_test: str, y_train: str, y_test: str) -> str:
+        code = self.code_generator.generate_code(
+            "time_based_split", X=X, y=y, cut=cut, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_k_fold(self, cv: str, k: str, shuffle: str, seed: str) -> str:
+        code = self.code_generator.generate_code("k_fold", cv=cv, k=k, shuffle=shuffle, seed=seed)
+        return self._execute_with_real_python(code)
+
+    def execute_stratified_k_fold(self, cv: str, k: str, shuffle: str, seed: str) -> str:
+        code = self.code_generator.generate_code("stratified_k_fold", cv=cv, k=k, shuffle=shuffle, seed=seed)
+        return self._execute_with_real_python(code)
+
+    def execute_repeated_k_fold(self, cv: str, k: str, r: str, seed: str) -> str:
+        code = self.code_generator.generate_code("repeated_k_fold", cv=cv, k=k, r=r, seed=seed)
+        return self._execute_with_real_python(code)
+
+    def execute_repeated_stratified_k_fold(self, cv: str, k: str, r: str, seed: str) -> str:
+        code = self.code_generator.generate_code("repeated_stratified_k_fold", cv=cv, k=k, r=r, seed=seed)
+        return self._execute_with_real_python(code)
+
     def execute_load_csv(self, filename: str, df: str) -> str:
         code = self.code_generator.generate_code(
             "load_csv", df=df, filename=self.code_generator.format_value(filename)
