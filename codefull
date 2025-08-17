@@ -159,6 +159,11 @@ class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL tem
             "tokenize_text": "import spacy\nnlp = spacy.load('en_core_web_sm')\ndoc = nlp({text})\ntokens = [t.text for t in doc]",
             "read_resize_image": "import cv2\nimg = cv2.imread({filename})\nimg = cv2.resize(img, ({width}, {height}))",
             "log_metric_mlflow": "import mlflow\nmlflow.log_metric({name}, {value})",
+            "dropna_dataframe": "{df} = {df}.dropna()",
+            "fillna_dataframe": "{df} = {df}.fillna({value})",
+            "fillna_column": "{df}['{column}'] = {df}['{column}'].fillna({value})",
+            "drop_duplicates": "{df} = {df}.drop_duplicates()",
+            "rename_column": "{df} = {df}.rename(columns={{'{old}': '{new}'}})",
         }
     
     def generate_code(self, template_key: str, **kwargs) -> str:
@@ -601,6 +606,11 @@ class NaturalLanguageExecutor:
             "execute_tokenize_text": ("tokenize_text", {"text": "text"}),
             "execute_resize_image": ("read_resize_image", {"filename": "filename", "width": "width", "height": "height"}),
             "execute_log_metric_mlflow": ("log_metric_mlflow", {"name": "metric", "value": "value"}),
+            "execute_dropna_dataframe": ("dropna_dataframe", {"df": "df"}),
+            "execute_fillna_dataframe": ("fillna_dataframe", {"df": "df", "value": "value"}),
+            "execute_fillna_column": ("fillna_column", {"df": "df", "column": "column", "value": "value"}),
+            "execute_drop_duplicates": ("drop_duplicates", {"df": "df"}),
+            "execute_rename_column": ("rename_column", {"df": "df", "old": "old", "new": "new"}),
         }
         
         if template.execution_func in code_mapping:
@@ -2187,6 +2197,36 @@ class NaturalLanguageExecutor:
                 "log metric {metric} equal to {value} to mlflow",
                 "execute_log_metric_mlflow",
                 {"metric": ParameterType.VALUE, "value": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "drop missing values from {df}",
+                "execute_dropna_dataframe",
+                {"df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "remove rows with missing values from {df}",
+                "execute_dropna_dataframe",
+                {"df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "fill missing values in {df} with {value}",
+                "execute_fillna_dataframe",
+                {"df": ParameterType.IDENTIFIER, "value": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "fill missing values in column {column} of {df} with {value}",
+                "execute_fillna_column",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "value": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "remove duplicate rows from {df}",
+                "execute_drop_duplicates",
+                {"df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "rename column {old} to {new} in {df}",
+                "execute_rename_column",
+                {"old": ParameterType.IDENTIFIER, "new": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
             ),
         ]
     
@@ -3858,6 +3898,36 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
     def execute_resize_image(self, filename: str, width: str, height: str) -> str:
         code = self.code_generator.generate_code(
             "read_resize_image", filename=self.code_generator.format_value(filename), width=width, height=height
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_dropna_dataframe(self, df: str) -> str:
+        code = self.code_generator.generate_code(
+            "dropna_dataframe", df=df
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_fillna_dataframe(self, df: str, value: str) -> str:
+        code = self.code_generator.generate_code(
+            "fillna_dataframe", df=df, value=value
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_fillna_column(self, df: str, column: str, value: str) -> str:
+        code = self.code_generator.generate_code(
+            "fillna_column", df=df, column=column, value=value
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_drop_duplicates(self, df: str) -> str:
+        code = self.code_generator.generate_code(
+            "drop_duplicates", df=df
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_rename_column(self, df: str, old: str, new: str) -> str:
+        code = self.code_generator.generate_code(
+            "rename_column", df=df, old=old, new=new
         )
         return self._execute_with_real_python(code)
 
