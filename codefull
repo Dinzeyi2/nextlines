@@ -164,6 +164,24 @@ class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL tem
             "fillna_column": "{df}['{column}'] = {df}['{column}'].fillna({value})",
             "drop_duplicates": "{df} = {df}.drop_duplicates()",
             "rename_column": "{df} = {df}.rename(columns={{'{old}': '{new}'}})",
+            "dropna_column": "{df} = {df}.dropna(subset=['{column}'])",
+            "fillna_column_mean": "{df}['{column}'] = {df}['{column}'].fillna({df}['{column}'].mean())",
+            "fillna_column_median": "{df}['{column}'] = {df}['{column}'].fillna({df}['{column}'].median())",
+            "fillna_column_mode": "{df}['{column}'] = {df}['{column}'].fillna({df}['{column}'].mode()[0])",
+            "ffill_dataframe": "{df} = {df}.ffill()",
+            "bfill_dataframe": "{df} = {df}.bfill()",
+            "drop_columns": "{df} = {df}.drop(columns=[{columns}])",
+            "filter_dataframe": "{df} = {df}[{condition}]",
+            "replace_value": "{df}['{column}'] = {df}['{column}'].replace({old}, {new})",
+            "replace_values": "{df}['{column}'] = {df}['{column}'].replace({mapping})",
+            "rename_columns": "{df} = {df}.rename(columns={mapping})",
+            "to_numeric": "{df}['{column}'] = pd.to_numeric({df}['{column}'], errors='coerce')",
+            "to_datetime": "{df}['{column}'] = pd.to_datetime({df}['{column}'])",
+            "extract_date_part": "{df}['{new_column}'] = {df}['{column}'].dt.{part}",
+            "standardize_column": "from sklearn.preprocessing import StandardScaler\n{df}['{column}'] = StandardScaler().fit_transform({df}[[{column}]])",
+            "minmax_scale_column": "from sklearn.preprocessing import MinMaxScaler\n{df}['{column}'] = MinMaxScaler().fit_transform({df}[[{column}]])",
+            "log_transform_column": "import numpy as np\n{df}['{column}'] = np.log({df}['{column}'])",
+            "exp_transform_column": "import numpy as np\n{df}['{column}'] = np.exp({df}['{column}'])",
         }
     
     def generate_code(self, template_key: str, **kwargs) -> str:
@@ -611,6 +629,24 @@ class NaturalLanguageExecutor:
             "execute_fillna_column": ("fillna_column", {"df": "df", "column": "column", "value": "value"}),
             "execute_drop_duplicates": ("drop_duplicates", {"df": "df"}),
             "execute_rename_column": ("rename_column", {"df": "df", "old": "old", "new": "new"}),
+            "execute_dropna_column": ("dropna_column", {"df": "df", "column": "column"}),
+            "execute_fillna_column_mean": ("fillna_column_mean", {"df": "df", "column": "column"}),
+            "execute_fillna_column_median": ("fillna_column_median", {"df": "df", "column": "column"}),
+            "execute_fillna_column_mode": ("fillna_column_mode", {"df": "df", "column": "column"}),
+            "execute_ffill_dataframe": ("ffill_dataframe", {"df": "df"}),
+            "execute_bfill_dataframe": ("bfill_dataframe", {"df": "df"}),
+            "execute_drop_columns": ("drop_columns", {"df": "df", "columns": "columns"}),
+            "execute_filter_dataframe": ("filter_dataframe", {"df": "df", "condition": "condition"}),
+            "execute_replace_value": ("replace_value", {"df": "df", "column": "column", "old": "old", "new": "new"}),
+            "execute_replace_values": ("replace_values", {"df": "df", "column": "column", "mapping": "mapping"}),
+            "execute_rename_columns": ("rename_columns", {"df": "df", "mapping": "mapping"}),
+            "execute_to_numeric": ("to_numeric", {"df": "df", "column": "column"}),
+            "execute_to_datetime": ("to_datetime", {"df": "df", "column": "column"}),
+            "execute_extract_date_part": ("extract_date_part", {"df": "df", "column": "column", "part": "part", "new_column": "new_column"}),
+            "execute_standardize_column": ("standardize_column", {"df": "df", "column": "column"}),
+            "execute_minmax_scale_column": ("minmax_scale_column", {"df": "df", "column": "column"}),
+            "execute_log_transform_column": ("log_transform_column", {"df": "df", "column": "column"}),
+            "execute_exp_transform_column": ("exp_transform_column", {"df": "df", "column": "column"}),
         }
         
         if template.execution_func in code_mapping:
@@ -625,7 +661,7 @@ class NaturalLanguageExecutor:
                     # Format the value appropriately
                     if code_param in ["value", "content", "old", "new", "separator"]:
                         code_params[code_param] = self.code_generator.format_value(str(value))
-                    elif code_param == "items":
+                    elif code_param in ["items", "columns"]:
                         code_params[code_param] = self.code_generator.format_collection(str(value))
                     elif code_param == "condition":
                         # Convert natural language condition to Python
@@ -659,7 +695,9 @@ class NaturalLanguageExecutor:
         condition = condition.replace(" contains ", " in ")
         condition = condition.replace(" is in ", " in ")
         condition = condition.replace(" is not in ", " not in ")
-        
+        condition = condition.replace(" and ", " & ")
+        condition = condition.replace(" or ", " | ")
+
         return condition
     
     def _execute_with_real_python(self, code: str) -> str:
@@ -2227,6 +2265,96 @@ class NaturalLanguageExecutor:
                 "rename column {old} to {new} in {df}",
                 "execute_rename_column",
                 {"old": ParameterType.IDENTIFIER, "new": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "drop rows in {df} where {column} is missing",
+                "execute_dropna_column",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "fill missing values in column {column} of {df} with its mean",
+                "execute_fillna_column_mean",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "fill missing values in column {column} of {df} with its median",
+                "execute_fillna_column_median",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "fill missing values in column {column} of {df} with its mode",
+                "execute_fillna_column_mode",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "forward fill missing values in {df}",
+                "execute_ffill_dataframe",
+                {"df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "backward fill missing values in {df}",
+                "execute_bfill_dataframe",
+                {"df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "drop columns {columns} from {df}",
+                "execute_drop_columns",
+                {"columns": ParameterType.COLLECTION, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "filter {df} where {condition}",
+                "execute_filter_dataframe",
+                {"df": ParameterType.IDENTIFIER, "condition": ParameterType.CONDITION},
+            ),
+            ExecutionTemplate(
+                "replace {old} with {new} in column {column} of {df}",
+                "execute_replace_value",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER, "old": ParameterType.VALUE, "new": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "replace values in column {column} of {df} using {mapping}",
+                "execute_replace_values",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER, "mapping": ParameterType.EXPRESSION},
+            ),
+            ExecutionTemplate(
+                "rename columns in {df} using {mapping}",
+                "execute_rename_columns",
+                {"df": ParameterType.IDENTIFIER, "mapping": ParameterType.EXPRESSION},
+            ),
+            ExecutionTemplate(
+                "convert column {column} of {df} to numeric",
+                "execute_to_numeric",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "convert column {column} of {df} to datetime",
+                "execute_to_datetime",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "extract {part} from column {column} of {df} into {new_column}",
+                "execute_extract_date_part",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER, "part": ParameterType.VALUE, "new_column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "standardise column {column} of {df}",
+                "execute_standardize_column",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "min max scale column {column} of {df}",
+                "execute_minmax_scale_column",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "apply log transform to column {column} of {df}",
+                "execute_log_transform_column",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "apply exponential transform to column {column} of {df}",
+                "execute_exp_transform_column",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER},
             ),
         ]
     
@@ -3928,6 +4056,114 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
     def execute_rename_column(self, df: str, old: str, new: str) -> str:
         code = self.code_generator.generate_code(
             "rename_column", df=df, old=old, new=new
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_dropna_column(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code(
+            "dropna_column", df=df, column=column
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_fillna_column_mean(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code(
+            "fillna_column_mean", df=df, column=column
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_fillna_column_median(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code(
+            "fillna_column_median", df=df, column=column
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_fillna_column_mode(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code(
+            "fillna_column_mode", df=df, column=column
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_ffill_dataframe(self, df: str) -> str:
+        code = self.code_generator.generate_code(
+            "ffill_dataframe", df=df
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_bfill_dataframe(self, df: str) -> str:
+        code = self.code_generator.generate_code(
+            "bfill_dataframe", df=df
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_drop_columns(self, df: str, columns: str) -> str:
+        code = self.code_generator.generate_code(
+            "drop_columns", df=df, columns=columns
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_filter_dataframe(self, df: str, condition: str) -> str:
+        code = self.code_generator.generate_code(
+            "filter_dataframe", df=df, condition=condition
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_replace_value(self, df: str, column: str, old: str, new: str) -> str:
+        code = self.code_generator.generate_code(
+            "replace_value", df=df, column=column, old=old, new=new
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_replace_values(self, df: str, column: str, mapping: str) -> str:
+        code = self.code_generator.generate_code(
+            "replace_values", df=df, column=column, mapping=mapping
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_rename_columns(self, df: str, mapping: str) -> str:
+        code = self.code_generator.generate_code(
+            "rename_columns", df=df, mapping=mapping
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_to_numeric(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code(
+            "to_numeric", df=df, column=column
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_to_datetime(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code(
+            "to_datetime", df=df, column=column
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_extract_date_part(self, df: str, column: str, part: str, new_column: str) -> str:
+        code = self.code_generator.generate_code(
+            "extract_date_part", df=df, column=column, part=part, new_column=new_column
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_standardize_column(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code(
+            "standardize_column", df=df, column=column
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_minmax_scale_column(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code(
+            "minmax_scale_column", df=df, column=column
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_log_transform_column(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code(
+            "log_transform_column", df=df, column=column
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_exp_transform_column(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code(
+            "exp_transform_column", df=df, column=column
         )
         return self._execute_with_real_python(code)
 
