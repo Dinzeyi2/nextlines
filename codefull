@@ -182,6 +182,35 @@ class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL tem
             "minmax_scale_column": "from sklearn.preprocessing import MinMaxScaler\n{df}['{column}'] = MinMaxScaler().fit_transform({df}[[{column}]])",
             "log_transform_column": "import numpy as np\n{df}['{column}'] = np.log({df}['{column}'])",
             "exp_transform_column": "import numpy as np\n{df}['{column}'] = np.exp({df}['{column}'])",
+            "one_hot_encode": "{df} = pd.get_dummies({df}, columns=[{column}])",
+            "ordinal_encode": "from sklearn.preprocessing import OrdinalEncoder\nencoder = OrdinalEncoder(categories=[[{items}]])\n{df}['{column}'] = encoder.fit_transform({df}[[{column}]])",
+            "frequency_encode": "{df}['{column}'] = {df}['{column}'].map({df}['{column}'].value_counts())",
+            "quantile_bin": "{df}['{new_column}'] = pd.qcut({df}['{column}'], {q})",
+            "fixed_width_bin": "{df}['{new_column}'] = pd.cut({df}['{column}'], bins={bins})",
+            "custom_bin": "{df}['{new_column}'] = pd.cut({df}['{column}'], bins=[{items}], labels=[{columns}])",
+            "remove_outliers_iqr": "Q1 = {df}['{column}'].quantile(0.25)\nQ3 = {df}['{column}'].quantile(0.75)\nIQR = Q3 - Q1\n{df} = {df}[({df}['{column}'] >= Q1 - 1.5 * IQR) & ({df}['{column}'] <= Q3 + 1.5 * IQR)]",
+            "remove_outliers_zscore": "from scipy import stats\n{df} = {df}[abs(stats.zscore({df}['{column}'])) < {threshold}]",
+            "cap_outliers": "{df}['{column}'] = {df}['{column}'].clip(lower={lower}, upper={upper})",
+            "text_lowercase": "{df}['{column}'] = {df}['{column}'].str.lower()",
+            "remove_punctuation": "{df}['{column}'] = {df}['{column}'].str.replace(r'[^\\w\\s]', '', regex=True)",
+            "remove_stopwords": "from nltk.corpus import stopwords\nstop = set(stopwords.words('english'))\n{df}['{column}'] = {df}['{column}'].apply(lambda x: ' '.join([word for word in x.split() if word not in stop]))",
+            "stem_text": "from nltk.stem import PorterStemmer\nstemmer = PorterStemmer()\n{df}['{column}'] = {df}['{column}'].apply(lambda x: ' '.join([stemmer.stem(word) for word in x.split()]))",
+            "lemmatize_text": "from nltk.stem import WordNetLemmatizer\nlemmatizer = WordNetLemmatizer()\n{df}['{column}'] = {df}['{column}'].apply(lambda x: ' '.join([lemmatizer.lemmatize(word) for word in x.split()]))",
+            "tokenize_text_column": "{df}['{column}'] = {df}['{column}'].str.split()",
+            "sort_by_date": "{df} = {df}.sort_values(by='{column}')",
+            "create_lag_feature": "{df}['{new_column}'] = {df}['{column}'].shift({lag})",
+            "create_lead_feature": "{df}['{new_column}'] = {df}['{column}'].shift(-{lead})",
+            "resample_time_series": "{df} = {df}.resample('{freq}').{agg}()",
+            "groupby_agg": "{df}_grouped = {df}.groupby([{columns}])['{agg_col}'].{agg_func}().reset_index()",
+            "pivot_data": "{df}_pivot = {df}.pivot(index='{index}', columns='{columns}', values='{values}')",
+            "melt_data": "{df}_melt = {df}.melt(id_vars=[{columns}], value_vars=[{items}])",
+            "rolling_calculation": "{df}['{new_column}'] = {df}['{column}'].rolling({window}).{agg_func}()",
+            "expanding_calculation": "{df}['{new_column}'] = {df}['{column}'].expanding().{agg_func}()",
+            "column_arithmetic": "{df}['{new_column}'] = {df}['{col1}'] {op} {df}['{col2}']",
+            "apply_function": "import numpy as np\n{df}['{new_column}'] = np.{func}({df}['{column}'])",
+            "concat_columns": "{df}['{new_column}'] = {df}[[{columns}]].astype(str).agg(' '.join, axis=1)",
+            "merge_dataframes": "{result} = {left}.merge({right}, on='{on}', how='{how}')",
+            "concat_dataframes": "{result} = pd.concat([{items}], axis={axis})",
         }
     
     def generate_code(self, template_key: str, **kwargs) -> str:
@@ -647,6 +676,35 @@ class NaturalLanguageExecutor:
             "execute_minmax_scale_column": ("minmax_scale_column", {"df": "df", "column": "column"}),
             "execute_log_transform_column": ("log_transform_column", {"df": "df", "column": "column"}),
             "execute_exp_transform_column": ("exp_transform_column", {"df": "df", "column": "column"}),
+            "execute_one_hot_encode": ("one_hot_encode", {"df": "df", "column": "column"}),
+            "execute_ordinal_encode": ("ordinal_encode", {"df": "df", "column": "column", "items": "categories"}),
+            "execute_frequency_encode": ("frequency_encode", {"df": "df", "column": "column"}),
+            "execute_quantile_bin": ("quantile_bin", {"df": "df", "column": "column", "new_column": "new_column", "q": "q"}),
+            "execute_fixed_width_bin": ("fixed_width_bin", {"df": "df", "column": "column", "new_column": "new_column", "bins": "bins"}),
+            "execute_custom_bin": ("custom_bin", {"df": "df", "column": "column", "new_column": "new_column", "items": "bins", "columns": "labels"}),
+            "execute_remove_outliers_iqr": ("remove_outliers_iqr", {"df": "df", "column": "column"}),
+            "execute_remove_outliers_zscore": ("remove_outliers_zscore", {"df": "df", "column": "column", "threshold": "threshold"}),
+            "execute_cap_outliers": ("cap_outliers", {"df": "df", "column": "column", "lower": "lower", "upper": "upper"}),
+            "execute_text_lowercase": ("text_lowercase", {"df": "df", "column": "column"}),
+            "execute_remove_punctuation": ("remove_punctuation", {"df": "df", "column": "column"}),
+            "execute_remove_stopwords": ("remove_stopwords", {"df": "df", "column": "column"}),
+            "execute_stem_text": ("stem_text", {"df": "df", "column": "column"}),
+            "execute_lemmatize_text": ("lemmatize_text", {"df": "df", "column": "column"}),
+            "execute_tokenize_text_column": ("tokenize_text_column", {"df": "df", "column": "column"}),
+            "execute_sort_by_date": ("sort_by_date", {"df": "df", "column": "column"}),
+            "execute_create_lag_feature": ("create_lag_feature", {"df": "df", "column": "column", "new_column": "new_column", "lag": "lag"}),
+            "execute_create_lead_feature": ("create_lead_feature", {"df": "df", "column": "column", "new_column": "new_column", "lead": "lead"}),
+            "execute_resample_time_series": ("resample_time_series", {"df": "df", "freq": "freq", "agg": "agg"}),
+            "execute_groupby_agg": ("groupby_agg", {"df": "df", "columns": "group_cols", "agg_col": "agg_col", "agg_func": "agg_func"}),
+            "execute_pivot_data": ("pivot_data", {"df": "df", "index": "index", "columns": "columns", "values": "values"}),
+            "execute_melt_data": ("melt_data", {"df": "df", "columns": "id_vars", "items": "value_vars"}),
+            "execute_rolling_calculation": ("rolling_calculation", {"df": "df", "column": "column", "window": "window", "agg_func": "agg_func", "new_column": "new_column"}),
+            "execute_expanding_calculation": ("expanding_calculation", {"df": "df", "column": "column", "agg_func": "agg_func", "new_column": "new_column"}),
+            "execute_column_arithmetic": ("column_arithmetic", {"df": "df", "col1": "col1", "col2": "col2", "op": "op", "new_column": "new_column"}),
+            "execute_apply_function": ("apply_function", {"df": "df", "column": "column", "func": "func", "new_column": "new_column"}),
+            "execute_concat_columns": ("concat_columns", {"df": "df", "columns": "columns", "new_column": "new_column"}),
+            "execute_merge_dataframes": ("merge_dataframes", {"left": "left", "right": "right", "on": "on", "how": "how", "result": "result"}),
+            "execute_concat_dataframes": ("concat_dataframes", {"items": "df_list", "axis": "axis", "result": "result"}),
         }
         
         if template.execution_func in code_mapping:
@@ -2355,6 +2413,151 @@ class NaturalLanguageExecutor:
                 "apply exponential transform to column {column} of {df}",
                 "execute_exp_transform_column",
                 {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "one hot encode column {column} in {df}",
+                "execute_one_hot_encode",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "ordinal encode column {column} in {df} with order {categories}",
+                "execute_ordinal_encode",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "categories": ParameterType.COLLECTION},
+            ),
+            ExecutionTemplate(
+                "frequency encode column {column} in {df}",
+                "execute_frequency_encode",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "bin column {column} of {df} into {q} quantiles as {new_column}",
+                "execute_quantile_bin",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "q": ParameterType.VALUE, "new_column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "bin column {column} of {df} into {bins} buckets as {new_column}",
+                "execute_fixed_width_bin",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "bins": ParameterType.VALUE, "new_column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "bin column {column} of {df} using bins {bins} and labels {labels} as {new_column}",
+                "execute_custom_bin",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "bins": ParameterType.COLLECTION, "labels": ParameterType.COLLECTION, "new_column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "remove outliers from column {column} of {df} using iqr",
+                "execute_remove_outliers_iqr",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "remove outliers from column {column} of {df} using zscore threshold {threshold}",
+                "execute_remove_outliers_zscore",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "threshold": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "cap values of column {column} of {df} between {lower} and {upper}",
+                "execute_cap_outliers",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "lower": ParameterType.VALUE, "upper": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "convert column {column} of {df} to lower case",
+                "execute_text_lowercase",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "remove punctuation from column {column} of {df}",
+                "execute_remove_punctuation",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "remove stopwords in column {column} of {df}",
+                "execute_remove_stopwords",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "stem text in column {column} of {df}",
+                "execute_stem_text",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "lemmatise text in column {column} of {df}",
+                "execute_lemmatize_text",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "tokenise column {column} of {df}",
+                "execute_tokenize_text_column",
+                {"column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "sort {df} by {column}",
+                "execute_sort_by_date",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create lag {lag} of column {column} in {df} as {new_column}",
+                "execute_create_lag_feature",
+                {"lag": ParameterType.VALUE, "column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "new_column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create lead {lead} of column {column} in {df} as {new_column}",
+                "execute_create_lead_feature",
+                {"lead": ParameterType.VALUE, "column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "new_column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "resample {df} to frequency {freq} using {agg}",
+                "execute_resample_time_series",
+                {"df": ParameterType.IDENTIFIER, "freq": ParameterType.VALUE, "agg": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "group {df} by {group_cols} and compute {agg_func} of {agg_col}",
+                "execute_groupby_agg",
+                {"df": ParameterType.IDENTIFIER, "group_cols": ParameterType.COLLECTION, "agg_col": ParameterType.IDENTIFIER, "agg_func": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "pivot {df} with index {index} columns {columns} values {values}",
+                "execute_pivot_data",
+                {"df": ParameterType.IDENTIFIER, "index": ParameterType.IDENTIFIER, "columns": ParameterType.IDENTIFIER, "values": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "melt {df} with id vars {id_vars} value vars {value_vars}",
+                "execute_melt_data",
+                {"df": ParameterType.IDENTIFIER, "id_vars": ParameterType.COLLECTION, "value_vars": ParameterType.COLLECTION},
+            ),
+            ExecutionTemplate(
+                "compute {agg_func} over rolling window {window} on column {column} of {df} into {new_column}",
+                "execute_rolling_calculation",
+                {"agg_func": ParameterType.IDENTIFIER, "window": ParameterType.VALUE, "column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "new_column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "compute expanding {agg_func} on column {column} of {df} into {new_column}",
+                "execute_expanding_calculation",
+                {"agg_func": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "new_column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create column {new_column} as {col1} {op} {col2} in {df}",
+                "execute_column_arithmetic",
+                {"new_column": ParameterType.IDENTIFIER, "col1": ParameterType.IDENTIFIER, "op": ParameterType.IDENTIFIER, "col2": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "apply {func} to column {column} of {df} into {new_column}",
+                "execute_apply_function",
+                {"func": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "new_column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "concatenate columns {columns} of {df} into {new_column}",
+                "execute_concat_columns",
+                {"columns": ParameterType.COLLECTION, "df": ParameterType.IDENTIFIER, "new_column": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "merge {left} and {right} on {on} with {how} join into {result}",
+                "execute_merge_dataframes",
+                {"left": ParameterType.IDENTIFIER, "right": ParameterType.IDENTIFIER, "on": ParameterType.IDENTIFIER, "how": ParameterType.VALUE, "result": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "concatenate dataframes {df_list} along axis {axis} into {result}",
+                "execute_concat_dataframes",
+                {"df_list": ParameterType.COLLECTION, "axis": ParameterType.VALUE, "result": ParameterType.IDENTIFIER},
             ),
         ]
     
@@ -4166,6 +4369,123 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             "exp_transform_column", df=df, column=column
         )
         return self._execute_with_real_python(code)
+
+    def execute_one_hot_encode(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code("one_hot_encode", df=df, column=column)
+        return self._execute_with_real_python(code)
+
+    def execute_ordinal_encode(self, df: str, column: str, categories: str) -> str:
+        code = self.code_generator.generate_code("ordinal_encode", df=df, column=column, items=categories)
+        return self._execute_with_real_python(code)
+
+    def execute_frequency_encode(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code("frequency_encode", df=df, column=column)
+        return self._execute_with_real_python(code)
+
+    def execute_quantile_bin(self, df: str, column: str, new_column: str, q: str) -> str:
+        code = self.code_generator.generate_code("quantile_bin", df=df, column=column, new_column=new_column, q=q)
+        return self._execute_with_real_python(code)
+
+    def execute_fixed_width_bin(self, df: str, column: str, new_column: str, bins: str) -> str:
+        code = self.code_generator.generate_code("fixed_width_bin", df=df, column=column, new_column=new_column, bins=bins)
+        return self._execute_with_real_python(code)
+
+    def execute_custom_bin(self, df: str, column: str, new_column: str, bins: str, labels: str) -> str:
+        code = self.code_generator.generate_code("custom_bin", df=df, column=column, new_column=new_column, items=bins, columns=labels)
+        return self._execute_with_real_python(code)
+
+    def execute_remove_outliers_iqr(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code("remove_outliers_iqr", df=df, column=column)
+        return self._execute_with_real_python(code)
+
+    def execute_remove_outliers_zscore(self, df: str, column: str, threshold: str) -> str:
+        code = self.code_generator.generate_code("remove_outliers_zscore", df=df, column=column, threshold=threshold)
+        return self._execute_with_real_python(code)
+
+    def execute_cap_outliers(self, df: str, column: str, lower: str, upper: str) -> str:
+        code = self.code_generator.generate_code("cap_outliers", df=df, column=column, lower=lower, upper=upper)
+        return self._execute_with_real_python(code)
+
+    def execute_text_lowercase(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code("text_lowercase", df=df, column=column)
+        return self._execute_with_real_python(code)
+
+    def execute_remove_punctuation(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code("remove_punctuation", df=df, column=column)
+        return self._execute_with_real_python(code)
+
+    def execute_remove_stopwords(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code("remove_stopwords", df=df, column=column)
+        return self._execute_with_real_python(code)
+
+    def execute_stem_text(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code("stem_text", df=df, column=column)
+        return self._execute_with_real_python(code)
+
+    def execute_lemmatize_text(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code("lemmatize_text", df=df, column=column)
+        return self._execute_with_real_python(code)
+
+    def execute_tokenize_text_column(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code("tokenize_text_column", df=df, column=column)
+        return self._execute_with_real_python(code)
+
+    def execute_sort_by_date(self, df: str, column: str) -> str:
+        code = self.code_generator.generate_code("sort_by_date", df=df, column=column)
+        return self._execute_with_real_python(code)
+
+    def execute_create_lag_feature(self, df: str, column: str, new_column: str, lag: str) -> str:
+        code = self.code_generator.generate_code("create_lag_feature", df=df, column=column, new_column=new_column, lag=lag)
+        return self._execute_with_real_python(code)
+
+    def execute_create_lead_feature(self, df: str, column: str, new_column: str, lead: str) -> str:
+        code = self.code_generator.generate_code("create_lead_feature", df=df, column=column, new_column=new_column, lead=lead)
+        return self._execute_with_real_python(code)
+
+    def execute_resample_time_series(self, df: str, freq: str, agg: str) -> str:
+        code = self.code_generator.generate_code("resample_time_series", df=df, freq=freq, agg=agg)
+        return self._execute_with_real_python(code)
+
+    def execute_groupby_agg(self, df: str, group_cols: str, agg_col: str, agg_func: str) -> str:
+        code = self.code_generator.generate_code("groupby_agg", df=df, columns=group_cols, agg_col=agg_col, agg_func=agg_func)
+        return self._execute_with_real_python(code)
+
+    def execute_pivot_data(self, df: str, index: str, columns: str, values: str) -> str:
+        code = self.code_generator.generate_code("pivot_data", df=df, index=index, columns=columns, values=values)
+        return self._execute_with_real_python(code)
+
+    def execute_melt_data(self, df: str, id_vars: str, value_vars: str) -> str:
+        code = self.code_generator.generate_code("melt_data", df=df, columns=id_vars, items=value_vars)
+        return self._execute_with_real_python(code)
+
+    def execute_rolling_calculation(self, df: str, column: str, window: str, agg_func: str, new_column: str) -> str:
+        code = self.code_generator.generate_code("rolling_calculation", df=df, column=column, window=window, agg_func=agg_func, new_column=new_column)
+        return self._execute_with_real_python(code)
+
+    def execute_expanding_calculation(self, df: str, column: str, agg_func: str, new_column: str) -> str:
+        code = self.code_generator.generate_code("expanding_calculation", df=df, column=column, agg_func=agg_func, new_column=new_column)
+        return self._execute_with_real_python(code)
+
+    def execute_column_arithmetic(self, df: str, col1: str, col2: str, op: str, new_column: str) -> str:
+        code = self.code_generator.generate_code("column_arithmetic", df=df, col1=col1, col2=col2, op=op, new_column=new_column)
+        return self._execute_with_real_python(code)
+
+    def execute_apply_function(self, df: str, column: str, func: str, new_column: str) -> str:
+        code = self.code_generator.generate_code("apply_function", df=df, column=column, func=func, new_column=new_column)
+        return self._execute_with_real_python(code)
+
+    def execute_concat_columns(self, df: str, columns: str, new_column: str) -> str:
+        code = self.code_generator.generate_code("concat_columns", df=df, columns=columns, new_column=new_column)
+        return self._execute_with_real_python(code)
+
+    def execute_merge_dataframes(self, left: str, right: str, on: str, how: str, result: str) -> str:
+        code = self.code_generator.generate_code("merge_dataframes", left=left, right=right, on=on, how=how, result=result)
+        return self._execute_with_real_python(code)
+
+    def execute_concat_dataframes(self, df_list: str, axis: str, result: str) -> str:
+        code = self.code_generator.generate_code("concat_dataframes", items=df_list, axis=axis, result=result)
+        return self._execute_with_real_python(code)
+
 
     def execute_log_metric_mlflow(self, metric: str, value: str) -> str:
         code = self.code_generator.generate_code(
