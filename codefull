@@ -146,6 +146,19 @@ class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL tem
             "bitwise_or": "{result} = {a} | {b}",
             "from_import": "from {module} import {name}",
             "try_finally": "try:\n    {action}\nfinally:\n    {cleanup}",
+
+            # Data Science & ML
+            "load_csv": "import pandas as pd\n{df} = pd.read_csv({filename})",
+            "show_head": "{df}.head({n})",
+            "filter_rows": "{df} = {df}[{df}['{column}'] > {value}]",
+            "create_column_bmi": "{df}['{new_col}'] = {df}['{weight}'] / {df}['{height}']**2",
+            "train_linear_regression": "from sklearn.linear_model import LinearRegression\nmodel = LinearRegression().fit({X}, {y})",
+            "compute_accuracy": "from sklearn.metrics import accuracy_score\ny_pred = model.predict({X_test})\naccuracy_score({y_test}, y_pred)",
+            "save_model": "import joblib\njoblib.dump(model, {filename})",
+            "load_model": "import joblib\nmodel = joblib.load({filename})",
+            "tokenize_text": "import spacy\nnlp = spacy.load('en_core_web_sm')\ndoc = nlp({text})\ntokens = [t.text for t in doc]",
+            "read_resize_image": "import cv2\nimg = cv2.imread({filename})\nimg = cv2.resize(img, ({width}, {height}))",
+            "log_metric_mlflow": "import mlflow\nmlflow.log_metric({name}, {value})",
         }
     
     def generate_code(self, template_key: str, **kwargs) -> str:
@@ -575,6 +588,19 @@ class NaturalLanguageExecutor:
             "execute_raise_exception": ("raise_exception", {"condition": "condition", "exception": "exception"}),
             "execute_match_case": ("match_case", {"expr": "expr", "pattern": "pattern", "action": "action"}),
             "execute_import_alias": ("import_alias", {"module": "module", "alias": "alias"}),
+
+            # Data Science & ML
+            "execute_load_csv": ("load_csv", {"df": "df", "filename": "filename"}),
+            "execute_show_head": ("show_head", {"df": "df", "n": "n"}),
+            "execute_filter_rows": ("filter_rows", {"df": "df", "column": "column", "value": "value"}),
+            "execute_create_column": ("create_column_bmi", {"df": "df", "new_col": "new_col", "weight": "weight", "height": "height"}),
+            "execute_train_linear_regression": ("train_linear_regression", {"X": "X", "y": "y"}),
+            "execute_compute_accuracy": ("compute_accuracy", {"X_test": "X_test", "y_test": "y_test"}),
+            "execute_save_model": ("save_model", {"filename": "filename"}),
+            "execute_load_model": ("load_model", {"filename": "filename"}),
+            "execute_tokenize_text": ("tokenize_text", {"text": "text"}),
+            "execute_resize_image": ("read_resize_image", {"filename": "filename", "width": "width", "height": "height"}),
+            "execute_log_metric_mlflow": ("log_metric_mlflow", {"name": "metric", "value": "value"}),
         }
         
         if template.execution_func in code_mapping:
@@ -2104,6 +2130,63 @@ class NaturalLanguageExecutor:
                 "try {action} finally {cleanup}",
                 "execute_try_finally",
                 {"action": ParameterType.VALUE, "cleanup": ParameterType.VALUE},
+            ),
+
+            # ===== DATA SCIENCE & MACHINE LEARNING =====
+            ExecutionTemplate(
+                "load csv file {filename} into {df}",
+                "execute_load_csv",
+                {"filename": ParameterType.VALUE, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "show first {n} rows of {df}",
+                "execute_show_head",
+                {"n": ParameterType.VALUE, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "filter {df} where column {column} is greater than {value}",
+                "execute_filter_rows",
+                {"df": ParameterType.IDENTIFIER, "column": ParameterType.IDENTIFIER, "value": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "create new column {new_col} in {df} as {weight} divided by {height} squared",
+                "execute_create_column",
+                {"new_col": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER, "weight": ParameterType.IDENTIFIER, "height": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "train linear regression model on {X} and {y}",
+                "execute_train_linear_regression",
+                {"X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "compute accuracy of model on {X_test} and {y_test}",
+                "execute_compute_accuracy",
+                {"X_test": ParameterType.IDENTIFIER, "y_test": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "save model to {filename}",
+                "execute_save_model",
+                {"filename": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "load model from {filename}",
+                "execute_load_model",
+                {"filename": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "tokenise text {text} with spacy",
+                "execute_tokenize_text",
+                {"text": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "read image {filename} and resize to {width} by {height}",
+                "execute_resize_image",
+                {"filename": ParameterType.VALUE, "width": ParameterType.VALUE, "height": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "log metric {metric} equal to {value} to mlflow",
+                "execute_log_metric_mlflow",
+                {"metric": ParameterType.VALUE, "value": ParameterType.IDENTIFIER},
             ),
         ]
     
@@ -3717,6 +3800,71 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
 
     def execute_try_finally(self, action: str, cleanup: str) -> str:
         code = self.code_generator.generate_code("try_finally", action=action, cleanup=cleanup)
+        return self._execute_with_real_python(code)
+
+    # ===== Data Science & Machine Learning =====
+    def execute_load_csv(self, filename: str, df: str) -> str:
+        code = self.code_generator.generate_code(
+            "load_csv", df=df, filename=self.code_generator.format_value(filename)
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_show_head(self, df: str, n: str) -> str:
+        code = self.code_generator.generate_code("show_head", df=df, n=n)
+        return self._execute_with_real_python(code)
+
+    def execute_filter_rows(self, df: str, column: str, value: str) -> str:
+        code = self.code_generator.generate_code(
+            "filter_rows", df=df, column=column, value=value
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_create_column(self, df: str, new_col: str, weight: str, height: str) -> str:
+        code = self.code_generator.generate_code(
+            "create_column_bmi", df=df, new_col=new_col, weight=weight, height=height
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_train_linear_regression(self, X: str, y: str) -> str:
+        code = self.code_generator.generate_code(
+            "train_linear_regression", X=X, y=y
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_compute_accuracy(self, X_test: str, y_test: str) -> str:
+        code = self.code_generator.generate_code(
+            "compute_accuracy", X_test=X_test, y_test=y_test
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_save_model(self, filename: str) -> str:
+        code = self.code_generator.generate_code(
+            "save_model", filename=self.code_generator.format_value(filename)
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_load_model(self, filename: str) -> str:
+        code = self.code_generator.generate_code(
+            "load_model", filename=self.code_generator.format_value(filename)
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_tokenize_text(self, text: str) -> str:
+        code = self.code_generator.generate_code(
+            "tokenize_text", text=self.code_generator.format_value(text)
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_resize_image(self, filename: str, width: str, height: str) -> str:
+        code = self.code_generator.generate_code(
+            "read_resize_image", filename=self.code_generator.format_value(filename), width=width, height=height
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_log_metric_mlflow(self, metric: str, value: str) -> str:
+        code = self.code_generator.generate_code(
+            "log_metric_mlflow", name=self.code_generator.format_value(metric), value=value
+        )
         return self._execute_with_real_python(code)
     
     def execute(self, user_input: str) -> str:
