@@ -128,6 +128,24 @@ class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL tem
             "raise_exception": "if {condition}:\n    raise {exception}",
             "match_case": "match {expr}:\n    case {pattern}:\n        {action}",
             "import_alias": "import {module} as {alias}",
+            # === Added advanced language features ===
+            "with_statement": "with {expr} as {var}:\n    {action}",
+            "decorator_function": "@{decorator}\ndef {name}({params}):\n    {body}",
+            "generator_definition": "def {name}():\n    for {var} in {collection}:\n        yield {expr}",
+            "set_comprehension": "{var} = {{ {expr} for {item} in {collection} }}",
+            "dict_comprehension": "{var} = {{ {key}: {value} for {item} in {collection} }}",
+            "nested_comprehension": "{var} = [ {expr} for {x} in {col1} for {y} in {col2} ]",
+            "global_declaration": "global {var}",
+            "nonlocal_declaration": "nonlocal {var}",
+            "slicing": "{sub} = {arr}[{start}:{end}:{step}]",
+            "multi_assignment": "{vars} = {values}",
+            "set_union": "{result} = {set1} | {set2}",
+            "set_intersection": "{result} = {set1} & {set2}",
+            "set_difference": "{result} = {set1} - {set2}",
+            "bitwise_and": "{result} = {a} & {b}",
+            "bitwise_or": "{result} = {a} | {b}",
+            "from_import": "from {module} import {name}",
+            "try_finally": "try:\n    {action}\nfinally:\n    {cleanup}",
         }
     
     def generate_code(self, template_key: str, **kwargs) -> str:
@@ -502,6 +520,23 @@ class NaturalLanguageExecutor:
             
             # Meta Programming
             "execute_dynamic_code": ("dynamic_code", {"code": "code"}),
+            "execute_with_statement": ("with_statement", {"expr": "expr", "var": "var", "action": "action"}),
+            "execute_decorator_function": ("decorator_function", {"decorator": "decorator", "name": "name", "params": "params", "body": "body"}),
+            "execute_generator_definition": ("generator_definition", {"name": "name", "var": "var", "collection": "collection", "expr": "expr"}),
+            "execute_set_comprehension": ("set_comprehension", {"var": "var", "expr": "expr", "item": "item", "collection": "collection"}),
+            "execute_dict_comprehension": ("dict_comprehension", {"var": "var", "key": "key", "value": "value", "item": "item", "collection": "collection"}),
+            "execute_nested_comprehension": ("nested_comprehension", {"var": "var", "expr": "expr", "x": "x", "col1": "col1", "y": "y", "col2": "col2"}),
+            "execute_global_declaration": ("global_declaration", {"var": "var"}),
+            "execute_nonlocal_declaration": ("nonlocal_declaration", {"var": "var"}),
+            "execute_slicing": ("slicing", {"sub": "sub", "arr": "arr", "start": "start", "end": "end", "step": "step"}),
+            "execute_multi_assignment": ("multi_assignment", {"vars": "vars", "values": "values"}),
+            "execute_set_union": ("set_union", {"result": "result", "set1": "set1", "set2": "set2"}),
+            "execute_set_intersection": ("set_intersection", {"result": "result", "set1": "set1", "set2": "set2"}),
+            "execute_set_difference": ("set_difference", {"result": "result", "set1": "set1", "set2": "set2"}),
+            "execute_bitwise_and": ("bitwise_and", {"result": "result", "a": "a", "b": "b"}),
+            "execute_bitwise_or": ("bitwise_or", {"result": "result", "a": "a", "b": "b"}),
+            "execute_from_import": ("from_import", {"module": "module", "name": "name"}),
+            "execute_try_finally": ("try_finally", {"action": "action", "cleanup": "cleanup"}),
             # ===== COMPLEX NATURAL LANGUAGE PATTERNS =====
             "execute_class_with_fields": ("dataclass_with_fields", {"name": "name", "fields": "fields"}),
             "execute_instance_with_values": ("instance_with_values", {"instance": "instance", "class_name": "class_name", "values": "values"}),
@@ -1983,6 +2018,92 @@ class NaturalLanguageExecutor:
                 "execute_advanced_object_manipulation",
                 {"object": ParameterType.IDENTIFIER, "field1": ParameterType.IDENTIFIER, "value1": ParameterType.VALUE, "field2": ParameterType.IDENTIFIER, "value2": ParameterType.VALUE, "method": ParameterType.IDENTIFIER},
                 priority=4
+            ),
+            # ===== Newly added advanced language features =====
+            ExecutionTemplate(
+                "import {name} from {module}",
+                "execute_from_import",
+                {"name": ParameterType.IDENTIFIER, "module": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "with {expr} as {var} do {action}",
+                "execute_with_statement",
+                {"expr": ParameterType.VALUE, "var": ParameterType.IDENTIFIER, "action": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "decorate function {name} with {decorator}",
+                "execute_decorator_function",
+                {"name": ParameterType.IDENTIFIER, "decorator": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "define generator {name} that yields {expr} for each {var} in {collection}",
+                "execute_generator_definition",
+                {"name": ParameterType.IDENTIFIER, "expr": ParameterType.VALUE, "var": ParameterType.IDENTIFIER, "collection": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create a set {var} of {expr} for each {item} in {collection}",
+                "execute_set_comprehension",
+                {"var": ParameterType.IDENTIFIER, "expr": ParameterType.VALUE, "item": ParameterType.IDENTIFIER, "collection": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create a dictionary {var} of {key} mapped to {value} for each {item} in {collection}",
+                "execute_dict_comprehension",
+                {"var": ParameterType.IDENTIFIER, "key": ParameterType.VALUE, "value": ParameterType.VALUE, "item": ParameterType.IDENTIFIER, "collection": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "create a list {var} of {expr} for each {x} in {col1} for each {y} in {col2}",
+                "execute_nested_comprehension",
+                {"var": ParameterType.IDENTIFIER, "expr": ParameterType.VALUE, "x": ParameterType.IDENTIFIER, "col1": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "col2": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "declare {var} as global",
+                "execute_global_declaration",
+                {"var": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "declare {var} as nonlocal",
+                "execute_nonlocal_declaration",
+                {"var": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "set {sub} to {arr} from index {start} to {end} step {step}",
+                "execute_slicing",
+                {"sub": ParameterType.IDENTIFIER, "arr": ParameterType.IDENTIFIER, "start": ParameterType.VALUE, "end": ParameterType.VALUE, "step": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "set {vars} equal to {values}",
+                "execute_multi_assignment",
+                {"vars": ParameterType.VALUE, "values": ParameterType.VALUE},
+            ),
+            ExecutionTemplate(
+                "set {result} to the union of {set1} and {set2}",
+                "execute_set_union",
+                {"result": ParameterType.IDENTIFIER, "set1": ParameterType.IDENTIFIER, "set2": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "set {result} to the intersection of {set1} and {set2}",
+                "execute_set_intersection",
+                {"result": ParameterType.IDENTIFIER, "set1": ParameterType.IDENTIFIER, "set2": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "set {result} to the difference of {set1} and {set2}",
+                "execute_set_difference",
+                {"result": ParameterType.IDENTIFIER, "set1": ParameterType.IDENTIFIER, "set2": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "set {result} to {a} and {b}",
+                "execute_bitwise_and",
+                {"result": ParameterType.IDENTIFIER, "a": ParameterType.IDENTIFIER, "b": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "set {result} to {a} or {b}",
+                "execute_bitwise_or",
+                {"result": ParameterType.IDENTIFIER, "a": ParameterType.IDENTIFIER, "b": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "try {action} finally {cleanup}",
+                "execute_try_finally",
+                {"action": ParameterType.VALUE, "cleanup": ParameterType.VALUE},
             ),
         ]
     
@@ -3504,6 +3625,99 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             return f"✓ Created infinite generator starting at {start} (showing first 10: {values})"
         except:
             return f"✗ Cannot create infinite generator starting at {start}"
+
+    # ===== Newly added advanced language features =====
+    def execute_with_statement(self, expr: str, var: str, action: str) -> str:
+        """Execute a context manager statement"""
+        code = self.code_generator.generate_code("with_statement", expr=expr, var=var, action=action)
+        return self._execute_with_real_python(code)
+
+    def execute_decorator_function(self, decorator: str, name: str, params: str = "", body: str = "pass") -> str:
+        """Define a decorated function"""
+        code = self.code_generator.generate_code(
+            "decorator_function", decorator=decorator, name=name, params=params, body=body
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_generator_definition(self, name: str, var: str, collection: str, expr: str) -> str:
+        """Define a simple generator"""
+        code = self.code_generator.generate_code(
+            "generator_definition", name=name, var=var, collection=collection, expr=expr
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_set_comprehension(self, var: str, expr: str, item: str, collection: str) -> str:
+        """Create a set via comprehension"""
+        code = self.code_generator.generate_code(
+            "set_comprehension", var=var, expr=expr, item=item, collection=collection
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_dict_comprehension(self, var: str, key: str, value: str, item: str, collection: str) -> str:
+        """Create a dictionary via comprehension"""
+        code = self.code_generator.generate_code(
+            "dict_comprehension", var=var, key=key, value=value, item=item, collection=collection
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_nested_comprehension(self, var: str, expr: str, x: str, col1: str, y: str, col2: str) -> str:
+        """Create a list with nested comprehension"""
+        code = self.code_generator.generate_code(
+            "nested_comprehension", var=var, expr=expr, x=x, col1=col1, y=y, col2=col2
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_global_declaration(self, var: str) -> str:
+        code = self.code_generator.generate_code("global_declaration", var=var)
+        return self._execute_with_real_python(code)
+
+    def execute_nonlocal_declaration(self, var: str) -> str:
+        code = self.code_generator.generate_code("nonlocal_declaration", var=var)
+        return self._execute_with_real_python(code)
+
+    def execute_slicing(self, sub: str, arr: str, start: str, end: str, step: str) -> str:
+        code = self.code_generator.generate_code(
+            "slicing", sub=sub, arr=arr, start=start, end=end, step=step
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_multi_assignment(self, vars: str, values: str) -> str:
+        code = self.code_generator.generate_code("multi_assignment", vars=vars, values=values)
+        return self._execute_with_real_python(code)
+
+    def execute_set_union(self, result: str, set1: str, set2: str) -> str:
+        code = self.code_generator.generate_code(
+            "set_union", result=result, set1=set1, set2=set2
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_set_intersection(self, result: str, set1: str, set2: str) -> str:
+        code = self.code_generator.generate_code(
+            "set_intersection", result=result, set1=set1, set2=set2
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_set_difference(self, result: str, set1: str, set2: str) -> str:
+        code = self.code_generator.generate_code(
+            "set_difference", result=result, set1=set1, set2=set2
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_bitwise_and(self, result: str, a: str, b: str) -> str:
+        code = self.code_generator.generate_code("bitwise_and", result=result, a=a, b=b)
+        return self._execute_with_real_python(code)
+
+    def execute_bitwise_or(self, result: str, a: str, b: str) -> str:
+        code = self.code_generator.generate_code("bitwise_or", result=result, a=a, b=b)
+        return self._execute_with_real_python(code)
+
+    def execute_from_import(self, module: str, name: str) -> str:
+        code = self.code_generator.generate_code("from_import", module=module, name=name)
+        return self._execute_with_real_python(code)
+
+    def execute_try_finally(self, action: str, cleanup: str) -> str:
+        code = self.code_generator.generate_code("try_finally", action=action, cleanup=cleanup)
+        return self._execute_with_real_python(code)
     
     def execute(self, user_input: str) -> str:
         """Main execution function - PURE NATURAL LANGUAGE WITH AUTOMATIC REAL PYTHON EXECUTION"""
