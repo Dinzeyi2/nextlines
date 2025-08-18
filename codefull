@@ -924,22 +924,133 @@ class NaturalLanguageExecutor:
         }
     
     def _convert_condition_to_python(self, condition: str) -> str:
-        """Convert natural language condition to Python condition"""
-        # Handle natural language operators
-        condition = condition.replace(" is equal to ", " == ")
-        condition = condition.replace(" equals ", " == ")
-        condition = condition.replace(" is greater than ", " > ")
-        condition = condition.replace(" is less than ", " < ")
-        condition = condition.replace(" is greater than or equal to ", " >= ")
-        condition = condition.replace(" is less than or equal to ", " <= ")
-        condition = condition.replace(" is not equal to ", " != ")
-        condition = condition.replace(" contains ", " in ")
-        condition = condition.replace(" is in ", " in ")
-        condition = condition.replace(" is not in ", " not in ")
-        condition = condition.replace(" and ", " & ")
-        condition = condition.replace(" or ", " | ")
+        """Convert a natural language condition to a valid Python expression.
 
-        return condition
+        Supported syntax
+        ----------------
+        * Logical operators: ``and`` / ``or`` (case insensitive)
+        * Parentheses for grouping
+        * Comparison operators with common synonyms::
+
+            equals / is equal to            -> ==
+            is not equal to                 -> !=
+            is greater than                 -> >
+            is less than                    -> <
+            is greater than or equal to     -> >=
+            is less than or equal to        -> <=
+            contains / is in                -> in
+            is not in / not in              -> not in
+
+        The generated expression is validated with :func:`ast.parse` before
+        being returned.  A ``ValueError`` is raised if parsing fails.
+        """
+
+        def tokenize(text: str) -> List[str]:
+            """Tokenize the condition string into meaningful components."""
+
+            text = text.replace("(", " ( ").replace(")", " ) ")
+            parts = shlex.split(text, posix=False)
+
+            # Mapping of comparison phrases to Python operators
+            comparisons = [
+                (("is", "greater", "than", "or", "equal", "to"), ">="),
+                (("is", "less", "than", "or", "equal", "to"), "<="),
+                (("greater", "than", "or", "equal", "to"), ">="),
+                (("less", "than", "or", "equal", "to"), "<="),
+                (("is", "not", "equal", "to"), "!="),
+                (("is", "greater", "than"), ">"),
+                (("is", "less", "than"), "<"),
+                (("greater", "than"), ">"),
+                (("less", "than"), "<"),
+                (("is", "equal", "to"), "=="),
+                (("is", "not", "in"), "not in"),
+                (("not", "in"), "not in"),
+                (("is", "in"), "in"),
+                (("contains",), "in"),
+                (("equals",), "=="),
+            ]
+
+            comparisons.sort(key=lambda x: -len(x[0]))
+
+            tokens: List[str] = []
+            i = 0
+            while i < len(parts):
+                part = parts[i]
+                lower = part.lower()
+
+                if part in {"(", ")"}:
+                    tokens.append(part)
+                    i += 1
+                    continue
+
+                matched = False
+                for words, symbol in comparisons:
+                    n = len(words)
+                    if [p.lower() for p in parts[i : i + n]] == list(words):
+                        tokens.append(symbol)
+                        i += n
+                        matched = True
+                        break
+                if matched:
+                    continue
+
+                if lower in {"and", "&&", "&"}:
+                    tokens.append("and")
+                    i += 1
+                    continue
+                if lower in {"or", "||", "|"}:
+                    tokens.append("or")
+                    i += 1
+                    continue
+
+                tokens.append(part)
+                i += 1
+
+            return tokens
+
+        def parse_expression(tokens: List[str], pos: int = 0) -> Tuple[str, int]:
+            """Recursive descent parser for boolean expressions."""
+
+            def parse_term(p: int) -> Tuple[str, int]:
+                if p >= len(tokens):
+                    raise ValueError("Incomplete expression")
+                tok = tokens[p]
+                if tok == "(":
+                    inner, p = parse_expression(tokens, p + 1)
+                    if p >= len(tokens) or tokens[p] != ")":
+                        raise ValueError("Unmatched '('")
+                    return f"({inner})", p + 1
+
+                left = tok
+                p += 1
+                if p >= len(tokens):
+                    raise ValueError("Expected operator")
+                op = tokens[p]
+                p += 1
+                if p >= len(tokens):
+                    raise ValueError("Expected right operand")
+                right = tokens[p]
+                p += 1
+                return f"{left} {op} {right}", p
+
+            expr, p = parse_term(pos)
+            while p < len(tokens) and tokens[p] in {"and", "or"}:
+                op = tokens[p]
+                rhs, p = parse_term(p + 1)
+                expr = f"{expr} {op} {rhs}"
+            return expr, p
+
+        tokens = tokenize(condition)
+        expression, final_pos = parse_expression(tokens)
+        if final_pos != len(tokens):
+            raise ValueError("Unexpected token in condition")
+
+        try:
+            ast.parse(expression, mode="eval")
+        except SyntaxError as e:
+            raise ValueError(f"Invalid condition: {condition}") from e
+
+        return expression
     
     def _execute_with_real_python(self, code: str) -> str:
         """Execute real Python code and return result"""
