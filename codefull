@@ -1,5 +1,6 @@
 import re
 import difflib
+import shlex
 from typing import Dict, List, Any, Optional, Tuple, Union
 from dataclasses import dataclass
 from enum import Enum
@@ -12,6 +13,11 @@ import resource
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+class ParameterExtractionError(Exception):
+    """Raised when a parameter cannot be parsed"""
+    pass
 
 class ParameterType(Enum):
     IDENTIFIER = "identifier"
@@ -494,77 +500,107 @@ class ExecutionContext:
 class ParameterExtractor:
     def __init__(self, context: ExecutionContext):
         self.context = context
+        self.number_words = {
+            "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4,
+            "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+            "ten": 10
+        }
+        self.ordinal_words = {
+            "first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5,
+            "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10
+        }
+        self.boolean_words = {
+            "true": True, "false": False, "yes": True, "no": False
+        }
+        self.identifier_synonyms = {
+            "ids": "id",
+            "identifiers": "id",
+            "identifier": "id"
+        }
+
+    def _tokenize(self, text: str) -> List[str]:
+        try:
+            return shlex.split(text)
+        except Exception:
+            return text.split()
         
     def extract_identifier(self, text: str) -> str:
         """Convert natural language to Python identifier"""
         resolved = self.context.resolve_reference(text)
         if resolved and resolved != text:
             return resolved
-            
-        text = text.strip().lower()
-        text = re.sub(r'[^\w\s]', '', text)
-        text = re.sub(r'\s+', '_', text)
-        return text
+
+        tokens = [t.lower() for t in self._tokenize(text)]
+        if not tokens:
+            raise ParameterExtractionError(f"Cannot resolve identifier from '{text}'")
+
+        normalized: List[str] = []
+        for tok in tokens:
+            tok = ''.join(ch for ch in tok if ch.isalnum() or ch == '_')
+            tok = self.identifier_synonyms.get(tok, tok)
+            normalized.append(tok)
+
+        identifier = '_'.join(normalized)
+        if not identifier:
+            raise ParameterExtractionError(f"Cannot resolve identifier from '{text}'")
+        return identifier
     
     def extract_value(self, text: str) -> Any:
         """Extract and convert values to appropriate Python types"""
         text = text.strip()
-        
-        # Handle numbers
-        if text.isdigit():
-            return int(text)
-        try:
-            return float(text)
-        except ValueError:
-            pass
-            
-        # Handle booleans
-        if text.lower() in ['true', 'yes']:
-            return True
-        if text.lower() in ['false', 'no']:
-            return False
-            
-        # Handle variable references
-        if text.lower() in self.context.variables:
-            return self.context.variables[text.lower()]
-        
-        # Handle string literals
-        if text.startswith('"') and text.endswith('"'):
-            return text[1:-1]
-        if text.startswith("'") and text.endswith("'"):
-            return text[1:-1]
-            
-        # Default to string
-        return text
+        tokens = self._tokenize(text)
+        if not tokens:
+            raise ParameterExtractionError(f"Cannot resolve value from '{text}'")
+
+        if len(tokens) == 1:
+            token = tokens[0]
+            lower = token.lower()
+
+            if lower.isdigit():
+                return int(lower)
+            if lower in self.number_words:
+                return self.number_words[lower]
+            if lower in self.ordinal_words:
+                return self.ordinal_words[lower]
+            try:
+                return float(lower)
+            except ValueError:
+                pass
+            if lower in self.boolean_words:
+                return self.boolean_words[lower]
+            if lower in self.context.variables:
+                return self.context.variables[lower]
+            return token
+
+        return ' '.join(tokens)
     
     def extract_condition_parts(self, text: str) -> Tuple[Any, str, Any]:
         """Extract condition parts for evaluation"""
-        text = text.strip()
-        
-        operators = {
-            r'\bis equal to\b': '==',
-            r'\bequals\b': '==',
-            r'\bis greater than\b': '>',
-            r'\bis less than\b': '<',
-            r'\bis greater than or equal to\b': '>=',
-            r'\bis less than or equal to\b': '<=',
-            r'\bis not equal to\b': '!=',
-            r'\bcontains\b': 'in',
-            r'\bis in\b': 'in',
-            r'\bis not in\b': 'not in'
+        tokens = [t.lower() for t in self._tokenize(text)]
+        operator_map = {
+            ('is', 'equal', 'to'): '==',
+            ('equals',): '==',
+            ('is', 'greater', 'than'): '>',
+            ('is', 'less', 'than'): '<',
+            ('is', 'greater', 'than', 'or', 'equal', 'to'): '>=',
+            ('is', 'less', 'than', 'or', 'equal', 'to'): '<=',
+            ('is', 'not', 'equal', 'to'): '!=',
+            ('contains',): 'in',
+            ('is', 'in'): 'in',
+            ('is', 'not', 'in'): 'not in'
         }
-        
-        for pattern, op in operators.items():
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                parts = text.split(match.group())
-                if len(parts) == 2:
-                    left = self.extract_value(parts[0].strip())
-                    right = self.extract_value(parts[1].strip())
+
+        for phrase, op in operator_map.items():
+            length = len(phrase)
+            for i in range(len(tokens) - length + 1):
+                if tokens[i:i + length] == list(phrase):
+                    left_tokens = tokens[:i]
+                    right_tokens = tokens[i + length:]
+                    left = self.extract_value(' '.join(left_tokens))
+                    right = self.extract_value(' '.join(right_tokens))
                     return left, op, right
-        
-        # Fallback
-        return text, '==', True
+
+        raise ParameterExtractionError(f"Cannot parse condition '{text}'")
     
     def extract_collection(self, text: str) -> List[Any]:
         """Extract collection from natural language"""
@@ -2985,15 +3021,17 @@ class NaturalLanguageExecutor:
         for param_name, param_type in template.parameters.items():
             if param_name in param_values:
                 raw_value = param_values[param_name]
-                
-                if param_type == ParameterType.IDENTIFIER:
-                    parameters[param_name] = self.extractor.extract_identifier(raw_value)
-                elif param_type == ParameterType.VALUE:
-                    parameters[param_name] = self.extractor.extract_value(raw_value)
-                elif param_type == ParameterType.CONDITION:
-                    parameters[param_name] = raw_value  # Will be processed in execution
-                elif param_type == ParameterType.COLLECTION:
-                    parameters[param_name] = self.extractor.extract_collection(raw_value)
+                try:
+                    if param_type == ParameterType.IDENTIFIER:
+                        parameters[param_name] = self.extractor.extract_identifier(raw_value)
+                    elif param_type == ParameterType.VALUE:
+                        parameters[param_name] = self.extractor.extract_value(raw_value)
+                    elif param_type == ParameterType.CONDITION:
+                        parameters[param_name] = raw_value  # Will be processed in execution
+                    elif param_type == ParameterType.COLLECTION:
+                        parameters[param_name] = self.extractor.extract_collection(raw_value)
+                except ParameterExtractionError as e:
+                    raise ParameterExtractionError(f"{param_name}: {e}")
         
         return parameters
     
@@ -3343,7 +3381,10 @@ class NaturalLanguageExecutor:
     # Conditionals
     def execute_conditional_print(self, condition: str, value: Any) -> str:
         """Execute conditional print"""
-        left, op, right = self.extractor.extract_condition_parts(condition)
+        try:
+            left, op, right = self.extractor.extract_condition_parts(condition)
+        except ParameterExtractionError as e:
+            return f"✗ {e}"
         
         # Get actual values if they're variables
         if isinstance(left, str) and left in self.context.variables:
@@ -3370,7 +3411,10 @@ class NaturalLanguageExecutor:
     
     def execute_conditional_assignment(self, condition: str, var: str, value: Any) -> str:
         """Execute conditional assignment"""
-        left, op, right = self.extractor.extract_condition_parts(condition)
+        try:
+            left, op, right = self.extractor.extract_condition_parts(condition)
+        except ParameterExtractionError as e:
+            return f"✗ {e}"
         
         if isinstance(left, str) and left in self.context.variables:
             left = self.context.variables[left]
@@ -4312,7 +4356,10 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
                 for item in source:
                     # Simple condition evaluation
                     self.context.variables[var] = item
-                    left, op, right = self.extractor.extract_condition_parts(condition)
+                    try:
+                        left, op, right = self.extractor.extract_condition_parts(condition)
+                    except ParameterExtractionError as e:
+                        return f"✗ {e}"
                     
                     # Evaluate condition
                     if isinstance(left, str) and left in self.context.variables:
@@ -4369,7 +4416,10 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
                 result = []
                 for item in source:
                     # Evaluate condition for each item
-                    left, op, right = self.extractor.extract_condition_parts(condition.replace("item", str(item)))
+                    try:
+                        left, op, right = self.extractor.extract_condition_parts(condition.replace("item", str(item)))
+                    except ParameterExtractionError as e:
+                        return f"✗ {e}"
                     
                     try:
                         if isinstance(left, str) and left.isdigit():
