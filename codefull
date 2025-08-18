@@ -237,6 +237,23 @@ class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL tem
             "concat_columns": "{df}['{new_column}'] = {df}[[{columns}]].astype(str).agg(' '.join, axis=1)",
             "merge_dataframes": "{result} = {left}.merge({right}, on='{on}', how='{how}')",
             "concat_dataframes": "{result} = pd.concat([{items}], axis={axis})",
+            "target_and_features": "{y} = {df}['{target}']\n{X} = {df}.drop(columns=['{target}'])",
+            "classification_metrics": "from sklearn.metrics import {imports}\n{y_pred_line}{y_prob_line}{metric_lines}",
+            "confusion_matrix_plot": "from sklearn.metrics import confusion_matrix\nimport matplotlib.pyplot as plt\n{y_pred_line}cm = confusion_matrix({y_test}, y_pred)\nplt.imshow(cm, cmap='Blues')\nplt.xlabel('Predicted')\nplt.ylabel('Actual')\nplt.colorbar()\nplt.show()",
+            "classification_report": "from sklearn.metrics import classification_report\n{y_pred_line}report = classification_report({y_test}, y_pred)\nprint(report)",
+            "regression_metrics": "from sklearn.metrics import {imports}\n{y_pred_line}{metric_lines}",
+            "histogram_plot": "import matplotlib.pyplot as plt\n{df}['{column}'].hist()\nplt.show()",
+            "box_plot": "import matplotlib.pyplot as plt\n{df}['{column}'].plot(kind='box')\nplt.show()",
+            "violin_plot": "import matplotlib.pyplot as plt\nplt.violinplot({df}['{column}'])\nplt.show()",
+            "scatter_plot": "import matplotlib.pyplot as plt\nplt.scatter({df}['{x}'], {df}['{y}'])\nplt.xlabel('{x}')\nplt.ylabel('{y}')\nplt.show()",
+            "correlation_heatmap": "import matplotlib.pyplot as plt\ncorr = {df}.corr()\nplt.imshow(corr, cmap='coolwarm', interpolation='none')\nplt.colorbar()\nplt.show()",
+            "per_class_histogram": "import matplotlib.pyplot as plt\nfor label in {df}['{class_col}'].unique():\n    subset = {df}[{df}['{class_col}'] == label]['{column}']\n    plt.hist(subset, alpha=0.5, label=str(label))\nplt.legend()\nplt.show()",
+            "tfidf_vectorize": "from sklearn.feature_extraction.text import TfidfVectorizer\nvectorizer = TfidfVectorizer({options})\n{X_text} = vectorizer.fit_transform(df['{column}'])",
+            "count_vectorize": "from sklearn.feature_extraction.text import CountVectorizer\nvectorizer = CountVectorizer({options})\n{X_text} = vectorizer.fit_transform(df['{column}'])",
+            "pca_pipeline": "from sklearn.decomposition import PCA\nfrom sklearn.pipeline import Pipeline\npca_pipe = Pipeline([('pca', PCA(n_components={n_components}))])\n{X_pca} = pca_pipe.fit_transform({X})",
+            "polynomial_features": "from sklearn.preprocessing import PolynomialFeatures\npoly = PolynomialFeatures(degree={degree}, interaction_only={interaction_only})\n{X_poly} = poly.fit_transform({X})",
+            "grid_search_cv": "from sklearn.model_selection import GridSearchCV, StratifiedKFold\ncv = StratifiedKFold(n_splits={k})\nsearch = GridSearchCV({estimator}, {param_grid}, cv=cv, scoring='{scoring}')\nsearch.fit({X}, {y})\n{best_model} = search.best_estimator_",
+            "random_search_cv": "from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold\ncv = StratifiedKFold(n_splits={k})\nsearch = RandomizedSearchCV({estimator}, {param_grid}, cv=cv, scoring='{scoring}', n_iter={n_iter}, random_state={seed})\nsearch.fit({X}, {y})\n{best_model} = search.best_estimator_",
         }
     
     def generate_code(self, template_key: str, **kwargs) -> str:
@@ -2746,6 +2763,96 @@ class NaturalLanguageExecutor:
                 "execute_concat_dataframes",
                 {"df_list": ParameterType.COLLECTION, "axis": ParameterType.VALUE, "result": ParameterType.IDENTIFIER},
             ),
+            ExecutionTemplate(
+                "set target column {y} as {target} and features {X} as all other columns in {df}",
+                "execute_target_and_features",
+                {"y": ParameterType.IDENTIFIER, "target": ParameterType.VALUE, "X": ParameterType.IDENTIFIER, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "compute {metrics} of {model} on {X_test}, {y_test}",
+                "execute_model_metrics",
+                {"metrics": ParameterType.VALUE, "model": ParameterType.IDENTIFIER, "X_test": ParameterType.IDENTIFIER, "y_test": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "show confusion matrix for {model} on {X_test}, {y_test}",
+                "execute_confusion_matrix",
+                {"model": ParameterType.IDENTIFIER, "X_test": ParameterType.IDENTIFIER, "y_test": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "show classification report for {model} on {X_test}, {y_test}",
+                "execute_classification_report",
+                {"model": ParameterType.IDENTIFIER, "X_test": ParameterType.IDENTIFIER, "y_test": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "plot histogram of {column} in {df}",
+                "execute_histogram_plot",
+                {"column": ParameterType.VALUE, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "plot box plot of {column} in {df}",
+                "execute_box_plot",
+                {"column": ParameterType.VALUE, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "plot violin plot of {column} in {df}",
+                "execute_violin_plot",
+                {"column": ParameterType.VALUE, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "plot scatter of {x} vs {y} in {df}",
+                "execute_scatter_plot",
+                {"x": ParameterType.VALUE, "y": ParameterType.VALUE, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "plot correlation heatmap for {df}",
+                "execute_correlation_heatmap",
+                {"df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "plot histogram of {column} by {class_col} in {df}",
+                "execute_per_class_histogram",
+                {"column": ParameterType.VALUE, "class_col": ParameterType.VALUE, "df": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "tf-idf vectorize column {column} into {X_text} with bigrams",
+                "execute_tfidf_vectorize_bigrams",
+                {"column": ParameterType.VALUE, "X_text": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "tf-idf vectorize column {column} into {X_text}",
+                "execute_tfidf_vectorize",
+                {"column": ParameterType.VALUE, "X_text": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "count vectorize column {column} into {X_text} with bigrams",
+                "execute_count_vectorize_bigrams",
+                {"column": ParameterType.VALUE, "X_text": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "count vectorize column {column} into {X_text}",
+                "execute_count_vectorize",
+                {"column": ParameterType.VALUE, "X_text": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "apply PCA with {n_components} components to {X} into {X_pca}",
+                "execute_pca_pipeline",
+                {"n_components": ParameterType.VALUE, "X": ParameterType.IDENTIFIER, "X_pca": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "add polynomial features of degree {degree} to {X} into {X_poly}",
+                "execute_polynomial_features",
+                {"degree": ParameterType.VALUE, "X": ParameterType.IDENTIFIER, "X_poly": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "grid search {estimator} on {X}, {y} with param grid {param_grid} using {k}-fold stratified CV scoring {scoring} pick best model as {best_model}",
+                "execute_grid_search_cv",
+                {"estimator": ParameterType.VALUE, "X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "param_grid": ParameterType.IDENTIFIER, "k": ParameterType.VALUE, "scoring": ParameterType.VALUE, "best_model": ParameterType.IDENTIFIER},
+            ),
+            ExecutionTemplate(
+                "random search {estimator} on {X}, {y} with param grid {param_grid} using {k}-fold stratified CV scoring {scoring} with {n_iter} iterations pick best model as {best_model}",
+                "execute_random_search_cv",
+                {"estimator": ParameterType.VALUE, "X": ParameterType.IDENTIFIER, "y": ParameterType.IDENTIFIER, "param_grid": ParameterType.IDENTIFIER, "k": ParameterType.VALUE, "scoring": ParameterType.VALUE, "n_iter": ParameterType.VALUE, "best_model": ParameterType.IDENTIFIER},
+            ),
         ]
     
     def _calculate_match_score(self, user_input: str, template: ExecutionTemplate) -> float:
@@ -4861,6 +4968,172 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
 
     def execute_concat_dataframes(self, df_list: str, axis: str, result: str) -> str:
         code = self.code_generator.generate_code("concat_dataframes", items=df_list, axis=axis, result=result)
+        return self._execute_with_real_python(code)
+
+
+    def execute_target_and_features(self, y: str, target: str, X: str, df: str) -> str:
+        code = self.code_generator.generate_code("target_and_features", y=y, target=target, X=X, df=df)
+        return self._execute_with_real_python(code)
+
+    def execute_model_metrics(self, metrics: str, model: str, X_test: str, y_test: str) -> str:
+        metrics_list = [m.strip().lower() for m in re.split(r',|and', metrics) if m.strip()]
+        classification_map = {
+            "accuracy": "accuracy_score",
+            "precision": "precision_score",
+            "recall": "recall_score",
+            "f1": "f1_score",
+            "roc_auc": "roc_auc_score",
+            "roc-auc": "roc_auc_score",
+            "pr_auc": "average_precision_score",
+            "pr-auc": "average_precision_score",
+        }
+        regression_map = {
+            "mse": "mean_squared_error",
+            "rmse": "mean_squared_error",
+            "mae": "mean_absolute_error",
+            "r2": "r2_score",
+            "r²": "r2_score",
+        }
+        if any(m in classification_map for m in metrics_list):
+            imports = []
+            lines = []
+            y_pred_line = f"y_pred = {model}.predict({X_test})\n"
+            y_prob_line = ""
+            if any(m in ['roc_auc', 'roc-auc', 'pr_auc', 'pr-auc'] for m in metrics_list):
+                y_prob_line = f"y_prob = {model}.predict_proba({X_test})[:,1]\n"
+            for m in metrics_list:
+                key = m.replace('-', '_')
+                if key in classification_map:
+                    func = classification_map[key]
+                    imports.append(func)
+                    target_pred = 'y_prob' if key in ['roc_auc', 'pr_auc'] else 'y_pred'
+                    var_name = key
+                    lines.append(f"{var_name} = {func}({y_test}, {target_pred})")
+                    lines.append(f"print('{var_name}:', {var_name})")
+            code = self.code_generator.generate_code(
+                "classification_metrics",
+                imports=", ".join(sorted(set(imports))),
+                y_pred_line=y_pred_line,
+                y_prob_line=y_prob_line,
+                metric_lines="\n".join(lines),
+            )
+            return self._execute_with_real_python(code)
+        else:
+            imports = []
+            lines = []
+            y_pred_line = f"y_pred = {model}.predict({X_test})\n"
+            for m in metrics_list:
+                key = m
+                if key in regression_map:
+                    func = regression_map[key]
+                    imports.append(func)
+                    if key == 'rmse':
+                        lines.append(f"mse = mean_squared_error({y_test}, y_pred)")
+                        lines.append("rmse = mse ** 0.5")
+                        lines.append("print('rmse:', rmse)")
+                        imports.append('mean_squared_error')
+                    else:
+                        lines.append(f"{key} = {func}({y_test}, y_pred)")
+                        lines.append(f"print('{key}:', {key})")
+            code = self.code_generator.generate_code(
+                "regression_metrics",
+                imports=", ".join(sorted(set(imports))),
+                y_pred_line=y_pred_line,
+                metric_lines="\n".join(lines),
+            )
+            return self._execute_with_real_python(code)
+
+    def execute_confusion_matrix(self, model: str, X_test: str, y_test: str) -> str:
+        y_pred_line = f"y_pred = {model}.predict({X_test})\n"
+        code = self.code_generator.generate_code("confusion_matrix_plot", y_pred_line=y_pred_line, y_test=y_test)
+        return self._execute_with_real_python(code)
+
+    def execute_classification_report(self, model: str, X_test: str, y_test: str) -> str:
+        y_pred_line = f"y_pred = {model}.predict({X_test})\n"
+        code = self.code_generator.generate_code("classification_report", y_pred_line=y_pred_line, y_test=y_test)
+        return self._execute_with_real_python(code)
+
+    def execute_histogram_plot(self, column: str, df: str) -> str:
+        code = self.code_generator.generate_code("histogram_plot", column=column, df=df)
+        return self._execute_with_real_python(code)
+
+    def execute_box_plot(self, column: str, df: str) -> str:
+        code = self.code_generator.generate_code("box_plot", column=column, df=df)
+        return self._execute_with_real_python(code)
+
+    def execute_violin_plot(self, column: str, df: str) -> str:
+        code = self.code_generator.generate_code("violin_plot", column=column, df=df)
+        return self._execute_with_real_python(code)
+
+    def execute_scatter_plot(self, x: str, y: str, df: str) -> str:
+        code = self.code_generator.generate_code("scatter_plot", x=x, y=y, df=df)
+        return self._execute_with_real_python(code)
+
+    def execute_correlation_heatmap(self, df: str) -> str:
+        code = self.code_generator.generate_code("correlation_heatmap", df=df)
+        return self._execute_with_real_python(code)
+
+    def execute_per_class_histogram(self, column: str, class_col: str, df: str) -> str:
+        code = self.code_generator.generate_code("per_class_histogram", column=column, class_col=class_col, df=df)
+        return self._execute_with_real_python(code)
+
+    def execute_tfidf_vectorize(self, column: str, X_text: str) -> str:
+        code = self.code_generator.generate_code("tfidf_vectorize", column=column, X_text=X_text, options="")
+        return self._execute_with_real_python(code)
+
+    def execute_tfidf_vectorize_bigrams(self, column: str, X_text: str) -> str:
+        code = self.code_generator.generate_code("tfidf_vectorize", column=column, X_text=X_text, options="ngram_range=(1,2)")
+        return self._execute_with_real_python(code)
+
+    def execute_count_vectorize(self, column: str, X_text: str) -> str:
+        code = self.code_generator.generate_code("count_vectorize", column=column, X_text=X_text, options="")
+        return self._execute_with_real_python(code)
+
+    def execute_count_vectorize_bigrams(self, column: str, X_text: str) -> str:
+        code = self.code_generator.generate_code("count_vectorize", column=column, X_text=X_text, options="ngram_range=(1,2)")
+        return self._execute_with_real_python(code)
+
+    def execute_pca_pipeline(self, n_components: str, X: str, X_pca: str) -> str:
+        code = self.code_generator.generate_code("pca_pipeline", n_components=n_components, X=X, X_pca=X_pca)
+        return self._execute_with_real_python(code)
+
+    def execute_polynomial_features(self, degree: str, X: str, X_poly: str) -> str:
+        code = self.code_generator.generate_code("polynomial_features", degree=degree, X=X, X_poly=X_poly, interaction_only="False")
+        return self._execute_with_real_python(code)
+
+    def execute_grid_search_cv(self, estimator: str, X: str, y: str, param_grid: str, k: str, scoring: str, best_model: str) -> str:
+        if not estimator.endswith(')'):
+            estimator += '()'
+        scoring = scoring.strip("'\"").lower()
+        code = self.code_generator.generate_code(
+            "grid_search_cv",
+            estimator=estimator,
+            X=X,
+            y=y,
+            param_grid=param_grid,
+            k=k,
+            scoring=scoring,
+            best_model=best_model,
+        )
+        return self._execute_with_real_python(code)
+
+    def execute_random_search_cv(self, estimator: str, X: str, y: str, param_grid: str, k: str, scoring: str, n_iter: str, best_model: str) -> str:
+        if not estimator.endswith(')'):
+            estimator += '()'
+        scoring = scoring.strip("'\"").lower()
+        n_iter = n_iter or '10'
+        code = self.code_generator.generate_code(
+            "random_search_cv",
+            estimator=estimator,
+            X=X,
+            y=y,
+            param_grid=param_grid,
+            k=k,
+            scoring=scoring,
+            n_iter=n_iter,
+            seed='42',
+            best_model=best_model,
+        )
         return self._execute_with_real_python(code)
 
 
