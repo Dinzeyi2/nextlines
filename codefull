@@ -6,6 +6,9 @@ from enum import Enum
 import operator
 import sys
 from io import StringIO
+import ast
+import multiprocessing
+import resource
 
 class ParameterType(Enum):
     IDENTIFIER = "identifier"
@@ -301,10 +304,9 @@ class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL tem
 
 class PythonExecutor:  # NEW: Real Python code execution
     """Executes generated Python code safely"""
-    
+
     def __init__(self):
-        self.execution_globals = {
-            '__builtins__': __builtins__,
+        self.allowed_builtins = {
             'print': print,
             'len': len,
             'str': str,
@@ -314,41 +316,108 @@ class PythonExecutor:  # NEW: Real Python code execution
             'dict': dict,
             'set': set,
             'tuple': tuple,
+            'range': range,
         }
+        self.execution_globals = {}
         self.execution_locals = {}
-        
+
+    def _validate_ast(self, code: str):
+        disallowed_nodes = (ast.Import, ast.ImportFrom)
+        disallowed_calls = {"eval", "exec", "__import__", "open"}
+        tree = ast.parse(code, mode="exec")
+        for node in ast.walk(tree):
+            if isinstance(node, disallowed_nodes):
+                raise ValueError(f"Disallowed node: {type(node).__name__}")
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name) and node.func.id in disallowed_calls:
+                    raise ValueError(f"Disallowed call: {node.func.id}")
+
     def execute_code(self, code: str) -> Dict[str, Any]:
         """Execute Python code and return results"""
-        old_stdout = sys.stdout
-        captured_output = StringIO()
-        
         try:
-            # Capture print output
-            sys.stdout = captured_output
-            
-            # Execute the code
-            exec(code, self.execution_globals, self.execution_locals)
-            
-            # Get output
-            output = captured_output.getvalue()
-            
-            return {
-                "success": True,
-                "output": output.strip() if output else "",
-                "locals": dict(self.execution_locals),
-                "error": None
-            }
-            
+            self._validate_ast(code)
         except Exception as e:
             return {
                 "success": False,
-                "output": captured_output.getvalue(),
+                "output": "",
                 "locals": dict(self.execution_locals),
-                "error": str(e)
+                "error": str(e),
             }
-        finally:
-            sys.stdout = old_stdout
-            captured_output.close()
+
+        def _run(code, g_vars, l_vars, builtins, queue):
+            import sys
+            import pickle
+            from io import StringIO
+
+            globals_env = {'__builtins__': builtins}
+            globals_env.update(g_vars)
+            locals_env = dict(l_vars)
+
+            old_stdout = sys.stdout
+            captured_output = StringIO()
+            sys.stdout = captured_output
+
+            try:
+                resource.setrlimit(resource.RLIMIT_CPU, (1, 1))
+                resource.setrlimit(resource.RLIMIT_AS, (50 * 1024 * 1024, 50 * 1024 * 1024))
+                exec(code, globals_env, locals_env)
+                safe_locals = {}
+                for k, v in locals_env.items():
+                    try:
+                        pickle.dumps(v)
+                        safe_locals[k] = v
+                    except Exception:
+                        pass
+                queue.put({
+                    'success': True,
+                    'output': captured_output.getvalue(),
+                    'locals': safe_locals,
+                    'error': None
+                })
+            except Exception as e:
+                queue.put({
+                    'success': False,
+                    'output': captured_output.getvalue(),
+                    'locals': {},
+                    'error': str(e)
+                })
+            finally:
+                sys.stdout = old_stdout
+                captured_output.close()
+
+        queue = multiprocessing.Queue()
+        process = multiprocessing.Process(
+            target=_run,
+            args=(code, self.execution_globals, self.execution_locals, self.allowed_builtins, queue),
+        )
+        process.start()
+        process.join(timeout=1)
+        if process.is_alive():
+            process.terminate()
+            process.join()
+            return {
+                'success': False,
+                'output': "",
+                'locals': dict(self.execution_locals),
+                'error': 'Execution timed out'
+            }
+
+        try:
+            result = queue.get(timeout=1)
+        except Exception:
+            result = {
+                'success': False,
+                'output': '',
+                'locals': {},
+                'error': 'Execution failed'
+            }
+        self.execution_locals.update(result.get('locals', {}))
+        return {
+            'success': result['success'],
+            'output': result.get('output', '').strip(),
+            'locals': dict(self.execution_locals),
+            'error': result.get('error')
+        }
     
     def get_variable(self, name: str) -> Any:
         """Get variable value from execution context"""
