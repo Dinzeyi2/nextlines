@@ -41,7 +41,7 @@ from sklearn.preprocessing import (
     StandardScaler,
 )
 from sklearn.feature_selection import RFE, SelectKBest, VarianceThreshold
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
 try:
     from imblearn.over_sampling import ADASYN, SMOTE
@@ -199,6 +199,28 @@ class DatasetManager:
                     report["out_of_range"][col] = {"min": float(series.min()), "max": float(series.max())}
         return report
 
+    def validate_and_clean(
+        self,
+        df: pd.DataFrame,
+        coerce_dtypes: bool = False,
+        drop_unexpected: bool = False,
+        fail_on_error: bool = False,
+    ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+        report = self.validate(df)
+        df = df.copy()
+        if coerce_dtypes:
+            for col, dtype in self.schema.dtypes.items():
+                if col in df:
+                    try:
+                        df[col] = df[col].astype(dtype)
+                    except Exception:
+                        pass
+        if drop_unexpected and report["unexpected_columns"]:
+            df = df.drop(columns=report["unexpected_columns"])
+        if fail_on_error and (report["invalid_categories"] or report["out_of_range"]):
+            raise ValueError("Validation failed: invalid categories or out of range values detected")
+        return df, report
+
     def fit_frequency_encoder(self, df: pd.DataFrame, columns: Optional[List[str]] = None) -> None:
         cols = columns or self.schema.categorical
         self.freq_encoder = FrequencyEncoder().fit(df[cols])
@@ -310,7 +332,27 @@ class DatasetManager:
         val_size: float = 0.1,
         stratify: Optional[pd.Series] = None,
         weights: Optional[pd.Series] = None,
+        groups: Optional[pd.Series] = None,
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Optional[pd.Series], Optional[pd.Series], Optional[pd.Series]]:
+        if groups is not None:
+            gss = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=self.random_state)
+            train_idx, test_idx = next(gss.split(df, groups=groups))
+            train_df, test_df = df.iloc[train_idx], df.iloc[test_idx]
+            w_train = weights.iloc[train_idx] if weights is not None else None
+            w_test = weights.iloc[test_idx] if weights is not None else None
+            strat_train = stratify.iloc[train_idx] if stratify is not None else None
+            groups_train = groups.iloc[train_idx]
+            rel_val_size = val_size / (1 - test_size)
+            gss_val = GroupShuffleSplit(n_splits=1, test_size=rel_val_size, random_state=self.random_state)
+            tr_idx, val_idx = next(gss_val.split(train_df, groups=groups_train))
+            val_df = train_df.iloc[val_idx]
+            train_df = train_df.iloc[tr_idx]
+            if w_train is not None:
+                w_val = w_train.iloc[val_idx]
+                w_train = w_train.iloc[tr_idx]
+            else:
+                w_val = None
+            return train_df, val_df, test_df, w_train, w_val, w_test
         train_df, test_df, w_train, w_test = train_test_split(
             df,
             weights,
@@ -332,18 +374,57 @@ class DatasetManager:
     # ------------------------------------------------------------------
     # Fitting and transforming
     # ------------------------------------------------------------------
-    def fit(self, train_df: pd.DataFrame) -> None:
+    def fit(self, train_df: pd.DataFrame, sample_weight: Optional[pd.Series] = None) -> None:
         if not self.pipeline:
             self.build_pipeline()
         X = train_df[self.schema.numeric + self.schema.categorical]
         y = train_df[self.schema.target] if self.schema.target else None
-        self.pipeline.fit(X, y)
+        if sample_weight is not None:
+            self.pipeline.fit(X, y, sample_weight=sample_weight)
+        else:
+            self.pipeline.fit(X, y)
 
     def transform(self, df: pd.DataFrame) -> np.ndarray:
         if not self.pipeline:
             raise RuntimeError("Pipeline has not been fit yet")
         X = df[self.schema.numeric + self.schema.categorical]
         return self.pipeline.transform(X)
+
+    def feature_importances(
+        self,
+        model: Any,
+        X: Optional[np.ndarray | pd.DataFrame] = None,
+        top_n: int = 20,
+    ) -> pd.DataFrame:
+        if not self.pipeline:
+            raise RuntimeError("Pipeline has not been fit yet")
+        preprocess = self.pipeline.named_steps.get("preprocess")
+        if preprocess is not None:
+            try:
+                feature_names = preprocess.get_feature_names_out()
+            except Exception:
+                feature_names = self.schema.numeric + self.schema.categorical
+        else:
+            feature_names = self.schema.numeric + self.schema.categorical
+
+        if hasattr(model, "feature_importances_"):
+            importances = model.feature_importances_
+        elif hasattr(model, "coef_"):
+            importances = np.ravel(model.coef_)
+        elif X is not None:
+            try:  # pragma: no cover - optional dependency
+                import shap
+
+                explainer = shap.Explainer(model, X)
+                shap_values = explainer(X)
+                importances = np.abs(shap_values.values).mean(axis=0)
+            except Exception as exc:  # pragma: no cover
+                raise ValueError("Model lacks feature importances, coefficients or shap support") from exc
+        else:
+            raise ValueError("Model lacks feature importances, coefficients or shap support")
+
+        df_imp = pd.DataFrame({"feature": feature_names, "importance": importances})
+        return df_imp.sort_values("importance", ascending=False).head(top_n)
 
     # ------------------------------------------------------------------
     # Serialisation
@@ -368,6 +449,31 @@ class DatasetManager:
 
     def load_registered(self, name: str, hashval: str) -> pd.DataFrame:
         return _load_dataframe(Path(self.registry_dir) / f"{name}-{hashval}.parquet")
+
+    def save_splits(
+        self,
+        train_df: pd.DataFrame,
+        val_df: pd.DataFrame,
+        test_df: pd.DataFrame,
+        directory: str | Path,
+    ) -> Dict[str, str]:
+        directory = Path(directory)
+        _save_dataframe(train_df, directory / "train.parquet")
+        _save_dataframe(val_df, directory / "val.parquet")
+        _save_dataframe(test_df, directory / "test.parquet")
+        hashes = {
+            "train": self.register_dataset("train", train_df),
+            "val": self.register_dataset("val", val_df),
+            "test": self.register_dataset("test", test_df),
+        }
+        return hashes
+
+    def load_processed(self, directory: str | Path) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        directory = Path(directory)
+        train = _load_dataframe(directory / "train.parquet")
+        val = _load_dataframe(directory / "val.parquet")
+        test = _load_dataframe(directory / "test.parquet")
+        return train, val, test
 
     # ------------------------------------------------------------------
     # Class imbalance utilities
@@ -409,6 +515,31 @@ class DatasetManager:
             test_idx = indices[test_start:test_end]
             yield train_idx, test_idx
 
+    def label_time_series_folds(
+        self,
+        df: pd.DataFrame,
+        n_splits: int,
+        gap: int = 0,
+        embargo: int = 0,
+        expanding: bool = True,
+        column: str = "fold",
+    ) -> pd.DataFrame:
+        df = df.copy()
+        n_samples = len(df)
+        labels = np.full(n_samples, -1)
+        for i, (_, test_idx) in enumerate(
+            self.time_series_splits(
+                n_splits=n_splits,
+                gap=gap,
+                embargo=embargo,
+                expanding=expanding,
+                n_samples=n_samples,
+            )
+        ):
+            labels[test_idx] = i
+        df[column] = labels
+        return df
+
 
 
 # ------------------------------------------------------------------
@@ -417,16 +548,46 @@ class DatasetManager:
 
 def run_template(dm: "DatasetManager", command: str, **kwargs):
     """Execute high level operations based on simple NL commands."""
-    if command == "build preprocessing pipeline with robust scaler and power transform yeo-johnson":
-        dm.pipeline_cfg = PipelineConfig(use_robust_scaler=True, power_transform="yeo-johnson")
+    if command == "build pipeline with options":
+        dm.imputation = ImputationConfig(
+            numeric_strategy=kwargs.get("numeric_strategy", "mean"),
+            categorical_strategy=kwargs.get("categorical_strategy", "most_frequent"),
+            knn=kwargs.get("knn", False),
+        )
+        dm.pipeline_cfg = PipelineConfig(
+            use_robust_scaler=kwargs.get("scaler", "standard") == "robust",
+            use_quantile_transform=kwargs.get("use_quantile", False),
+            power_transform=kwargs.get("power_transform"),
+            select_k_best=kwargs.get("select_k_best"),
+            variance_threshold=kwargs.get("variance_threshold"),
+            rfe_estimator=kwargs.get("rfe_estimator"),
+            categorical_encoder=kwargs.get("encoder", "onehot"),
+        )
         return dm.build_pipeline()
     if command == "fit pipeline on train_df":
         return dm.fit(kwargs["train_df"])
+    if command == "fit pipeline on train_df with sample weights w_train":
+        return dm.fit(kwargs["train_df"], sample_weight=kwargs["w_train"])
     if command == "transform val_df as X_val":
         return dm.transform(kwargs["val_df"])
     if command == "stratified split df by y with test size 0.2 and val size 0.1":
         return dm.train_val_test_split(
-            kwargs["df"], stratify=kwargs["y"], test_size=0.2, val_size=0.1
+            kwargs["df"],
+            stratify=kwargs["y"],
+            test_size=0.2,
+            val_size=0.1,
+            weights=kwargs.get("weights"),
+            groups=kwargs.get("groups"),
+        )
+    if command == "stratified split df by binned y into 5 bins with test size 0.2 and val size 0.1":
+        strat = pd.qcut(kwargs["y"], q=5, duplicates="drop")
+        return dm.train_val_test_split(
+            kwargs["df"],
+            stratify=strat,
+            test_size=0.2,
+            val_size=0.1,
+            weights=kwargs.get("weights"),
+            groups=kwargs.get("groups"),
         )
     if command == "handle rare categories under 1% in df":
         return dm.handle_rare_categories(kwargs["df"], threshold=0.01)
@@ -436,6 +597,31 @@ def run_template(dm: "DatasetManager", command: str, **kwargs):
         return dm.save_pipeline("prep.pkl")
     if command == "load pipeline from prep.pkl":
         return dm.load_pipeline("prep.pkl")
+    if command == "show top 20 most important features for model using preprocess feature names":
+        return dm.feature_importances(kwargs["model"], kwargs.get("X"), top_n=20)
+    if command == "label folds in df":
+        return dm.label_time_series_folds(
+            kwargs["df"],
+            n_splits=kwargs.get("n_splits", 5),
+            gap=kwargs.get("gap", 0),
+            embargo=kwargs.get("embargo", 0),
+            expanding=kwargs.get("expanding", True),
+        )
+    if command == "validate df":
+        return dm.validate_and_clean(
+            kwargs["df"],
+            coerce_dtypes=kwargs.get("coerce", False),
+            drop_unexpected=kwargs.get("drop", False),
+            fail_on_error=kwargs.get("fail", False),
+        )
+    if command == "save train_df val_df test_df to path":
+        return dm.save_splits(
+            kwargs["train_df"], kwargs["val_df"], kwargs["test_df"], kwargs["path"]
+        )
+    if command == "load processed datasets from path":
+        return dm.load_processed(kwargs["path"])
+    if command == "load processed dataset version":
+        return dm.load_registered(kwargs["name"], kwargs["hash"])
     raise ValueError(f"Unknown command: {command}")
 
 
