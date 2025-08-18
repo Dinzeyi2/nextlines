@@ -9,6 +9,9 @@ from io import StringIO
 import ast
 import multiprocessing
 import resource
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ParameterType(Enum):
     IDENTIFIER = "identifier"
@@ -600,7 +603,7 @@ class NaturalLanguageExecutor:
         else:
             raise ValueError("Mode must be 'simulation', 'real', or 'hybrid'")
     
-    def _generate_real_python_code(self, template: ExecutionTemplate, parameters: Dict[str, str]) -> str:
+    def map_to_code(self, template: ExecutionTemplate, parameters: Dict[str, str]) -> Union[str, Dict[str, Any]]:
         """Generate real Python code from template and parameters - COMPLETE MAPPING"""
         
         # COMPLETE mapping of ALL execution functions to code generation
@@ -876,7 +879,13 @@ class NaturalLanguageExecutor:
             return self.code_generator.generate_code(template_key, **code_params)
         
         # Fallback for unmapped functions
-        return f"# TODO: Implement code generation for {template.execution_func}"
+        logger.error("No code generation mapping for %s", template.execution_func)
+        return {
+            "success": False,
+            "error": "UNSUPPORTED_TEMPLATE",
+            "template": template.execution_func,
+            "message": f"No code mapping for {template.execution_func}",
+        }
     
     def _convert_condition_to_python(self, condition: str) -> str:
         """Convert natural language condition to Python condition"""
@@ -5223,28 +5232,43 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
         # Find best matching template
         best_score = 0
         best_template = None
-        
+        patterns = [t.pattern for t in self.templates]
+
         for template in self.templates:
             score = self._calculate_match_score(user_input, template)
             if score > best_score:
                 best_score = score
                 best_template = template
-        
+
         if best_template is None or best_score < 0.3:
-            return f"✗ Sorry, I don't understand: '{user_input}'"
-        
+            logger.info("Unsupported phrase: %s", user_input)
+            suggestion = difflib.get_close_matches(user_input, patterns, n=1)
+            message = f"✗ Sorry, I don't understand: '{user_input}'"
+            if suggestion:
+                message += f". Did you mean: '{suggestion[0]}'?"
+            return message
+
         # Extract parameters
         parameters = self._extract_parameters(user_input, best_template)
+
+        missing_params = [p for p in best_template.parameters if p not in parameters]
+        if missing_params:
+            logger.info("Unsupported phrase: %s", user_input)
+            suggestion = difflib.get_close_matches(user_input, patterns, n=1)
+            message = f"✗ Sorry, I don't understand: '{user_input}'"
+            if suggestion:
+                message += f". Did you mean: '{suggestion[0]}'?"
+            return message
         
         # AUTOMATIC REAL PYTHON CODE GENERATION AND EXECUTION
         try:
             # Generate real Python code
-            python_code = self._generate_real_python_code(best_template, parameters)
-            
-            if python_code and not python_code.startswith("# Error") and not python_code.startswith("# TODO"):
+            python_code = self.map_to_code(best_template, parameters)
+
+            if isinstance(python_code, str) and not python_code.startswith("# Error"):
                 # Execute the real Python code
                 execution_result = self._execute_with_real_python(python_code)
-                
+
                 # Return natural language result
                 return execution_result
             
@@ -5257,7 +5281,14 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             execution_method = getattr(self, best_template.execution_func)
             result = execution_method(**parameters)
             return result
-                
+
+        except AttributeError:
+            logger.info("Unsupported phrase: %s", user_input)
+            suggestion = difflib.get_close_matches(user_input, patterns, n=1)
+            message = f"✗ Sorry, I don't understand: '{user_input}'"
+            if suggestion:
+                message += f". Did you mean: '{suggestion[0]}'?"
+            return message
         except Exception as e:
             return f"✗ Error executing command: {str(e)}"
     
