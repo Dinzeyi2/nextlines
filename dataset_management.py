@@ -564,6 +564,19 @@ def run_template(dm: "DatasetManager", command: str, **kwargs):
             categorical_encoder=kwargs.get("encoder", "onehot"),
         )
         return dm.build_pipeline()
+    if (
+        command
+        == "build preprocessing pipeline with robust scaler, knn imputer, quantile transform, power transform yeo-johnson, categorical encoder target, select k best 50"
+    ):
+        dm.imputation = ImputationConfig(knn=True)
+        dm.pipeline_cfg = PipelineConfig(
+            use_robust_scaler=True,
+            use_quantile_transform=True,
+            power_transform="yeo-johnson",
+            categorical_encoder="target",
+            select_k_best=50,
+        )
+        return dm.build_pipeline()
     if command == "fit pipeline on train_df":
         return dm.fit(kwargs["train_df"])
     if command == "fit pipeline on train_df with sample weights w_train":
@@ -606,6 +619,22 @@ def run_template(dm: "DatasetManager", command: str, **kwargs):
             gap=kwargs.get("gap", 0),
             embargo=kwargs.get("embargo", 0),
             expanding=kwargs.get("expanding", True),
+        )
+    if (
+        command
+        == "make time series splits with n splits 5, gap 7, embargo 3, expanding true for 10000 samples"
+    ):
+        return list(
+            dm.time_series_splits(
+                n_splits=5, gap=7, embargo=3, expanding=True, n_samples=10000
+            )
+        )
+    if command == "validate df and coerce dtypes true, drop unexpected true, fail on error false":
+        return dm.validate_and_clean(
+            kwargs["df"],
+            coerce_dtypes=True,
+            drop_unexpected=True,
+            fail_on_error=False,
         )
     if command == "validate df":
         return dm.validate_and_clean(
