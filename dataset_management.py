@@ -30,6 +30,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (
@@ -75,6 +76,9 @@ class Schema:
     numeric: List[str] = field(default_factory=list)
     categorical: List[str] = field(default_factory=list)
     target: Optional[str] = None
+    dtypes: Dict[str, str] = field(default_factory=dict)
+    categories: Dict[str, List[Any]] = field(default_factory=dict)
+    ranges: Dict[str, Tuple[float, float]] = field(default_factory=dict)
 
 
 @dataclass
@@ -92,45 +96,51 @@ class PipelineConfig:
     select_k_best: Optional[int] = None
     variance_threshold: Optional[float] = None
     rfe_estimator: Optional[Any] = None
+    categorical_encoder: str = "onehot"
 
 
 
-class FrequencyEncoder:
-    # frequency encoding class
+class FrequencyEncoder(BaseEstimator, TransformerMixin):
+    """Frequency encoder usable within scikit-learn pipelines."""
 
-    """Frequency encoder with fit/transform separation."""
-    def __init__(self):
+    def __init__(self) -> None:
         self.maps: Dict[str, Dict[Any, float]] = {}
+        self.columns: List[str] = []
 
-    def fit(self, df: pd.DataFrame, columns: List[str]) -> 'FrequencyEncoder':
-        for col in columns:
-            freq = df[col].value_counts(normalize=True).to_dict()
-            self.maps[col] = freq
+    def fit(self, X: pd.DataFrame, y: Any | None = None) -> 'FrequencyEncoder':
+        df = pd.DataFrame(X)
+        self.columns = df.columns.tolist()
+        for col in self.columns:
+            self.maps[col] = df[col].value_counts(normalize=True).to_dict()
         return self
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy()
-        for col, mapping in self.maps.items():
-            df[col] = df[col].map(mapping).fillna(0.0)
-        return df
+    def transform(self, X: pd.DataFrame) -> np.ndarray:
+        df = pd.DataFrame(X, columns=self.columns)
+        for col in self.columns:
+            df[col] = df[col].map(self.maps[col]).fillna(0.0)
+        return df.values
 
 
-class TargetEncoder:
-    """Target encoder with fit/transform separation."""
-    def __init__(self):
+class TargetEncoder(BaseEstimator, TransformerMixin):
+    """Target encoder usable within scikit-learn pipelines."""
+
+    def __init__(self) -> None:
         self.maps: Dict[str, Dict[Any, float]] = {}
+        self.columns: List[str] = []
 
-    def fit(self, df: pd.DataFrame, columns: List[str], target: str) -> 'TargetEncoder':
-        for col in columns:
-            means = df.groupby(col)[target].mean().to_dict()
-            self.maps[col] = means
+    def fit(self, X: pd.DataFrame, y: Any) -> 'TargetEncoder':
+        df = pd.DataFrame(X)
+        self.columns = df.columns.tolist()
+        y_series = pd.Series(y, index=df.index)
+        for col in self.columns:
+            self.maps[col] = y_series.groupby(df[col]).mean().to_dict()
         return self
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy()
-        for col, mapping in self.maps.items():
-            df[col] = df[col].map(mapping).fillna(0.0)
-        return df
+    def transform(self, X: pd.DataFrame) -> np.ndarray:
+        df = pd.DataFrame(X, columns=self.columns)
+        for col in self.columns:
+            df[col] = df[col].map(self.maps[col]).fillna(0.0)
+        return df.values
 
 # ---------------------------------------------------------------------------
 # Main DatasetManager
@@ -161,31 +171,64 @@ class DatasetManager:
     # Data validation
     # ------------------------------------------------------------------
     def validate(self, df: pd.DataFrame) -> Dict[str, Any]:
-        report: Dict[str, Any] = {"missing_columns": [], "unexpected_columns": []}
+        report: Dict[str, Any] = {
+            "missing_columns": [],
+            "unexpected_columns": [],
+            "dtype_mismatches": {},
+            "invalid_categories": {},
+            "out_of_range": {},
+        }
         expected = set(self.schema.numeric + self.schema.categorical)
         if self.schema.target:
             expected.add(self.schema.target)
         report["missing_columns"] = sorted(expected - set(df.columns))
         report["unexpected_columns"] = sorted(set(df.columns) - expected)
+        for col, dtype in self.schema.dtypes.items():
+            if col in df and str(df[col].dtype) != dtype:
+                report["dtype_mismatches"][col] = str(df[col].dtype)
+        for col, cats in self.schema.categories.items():
+            if col in df:
+                invalid = sorted(set(df[col].dropna().unique()) - set(cats))
+                if invalid:
+                    report["invalid_categories"][col] = invalid
+        for col, (low, high) in self.schema.ranges.items():
+            if col in df:
+                series = df[col].dropna()
+                out = series[(series < low) | (series > high)]
+                if not out.empty:
+                    report["out_of_range"][col] = {"min": float(series.min()), "max": float(series.max())}
         return report
 
     def fit_frequency_encoder(self, df: pd.DataFrame, columns: Optional[List[str]] = None) -> None:
         cols = columns or self.schema.categorical
-        self.freq_encoder = FrequencyEncoder().fit(df, cols)
+        self.freq_encoder = FrequencyEncoder().fit(df[cols])
 
     def apply_frequency_encoding(self, df: pd.DataFrame) -> pd.DataFrame:
         if not self.freq_encoder:
             raise RuntimeError("Frequency encoder not fit")
-        return self.freq_encoder.transform(df)
+        df = df.copy()
+        encoded = self.freq_encoder.transform(df[self.freq_encoder.columns])
+        df[self.freq_encoder.columns] = pd.DataFrame(
+            encoded, index=df.index, columns=self.freq_encoder.columns
+        )
+        return df
 
-    def fit_target_encoder(self, df: pd.DataFrame, target: str, columns: Optional[List[str]] = None) -> None:
+    def fit_target_encoder(
+        self, df: pd.DataFrame, target: str | pd.Series, columns: Optional[List[str]] = None
+    ) -> None:
         cols = columns or self.schema.categorical
-        self.target_encoder = TargetEncoder().fit(df, cols, target)
+        y = df[target] if isinstance(target, str) else target
+        self.target_encoder = TargetEncoder().fit(df[cols], y)
 
     def apply_target_encoding(self, df: pd.DataFrame) -> pd.DataFrame:
         if not self.target_encoder:
             raise RuntimeError("Target encoder not fit")
-        return self.target_encoder.transform(df)
+        df = df.copy()
+        encoded = self.target_encoder.transform(df[self.target_encoder.columns])
+        df[self.target_encoder.columns] = pd.DataFrame(
+            encoded, index=df.index, columns=self.target_encoder.columns
+        )
+        return df
 
     # ------------------------------------------------------------------
     # Pipeline creation
@@ -211,9 +254,22 @@ class DatasetManager:
         transformers.append(("num", num_pipe, self.schema.numeric))
 
         cat_steps: List[Tuple[str, Any]] = [
-            ("imputer", SimpleImputer(strategy=self.imputation.categorical_strategy, fill_value="missing")),
-            ("encoder", OneHotEncoder(handle_unknown="ignore", sparse=False)),
+            (
+                "imputer",
+                SimpleImputer(
+                    strategy=self.imputation.categorical_strategy, fill_value="missing"
+                ),
+            )
         ]
+        enc = self.pipeline_cfg.categorical_encoder
+        if enc == "onehot":
+            cat_steps.append(("encoder", OneHotEncoder(handle_unknown="ignore", sparse=False)))
+        elif enc == "frequency":
+            cat_steps.append(("encoder", FrequencyEncoder()))
+        elif enc == "target":
+            cat_steps.append(("encoder", TargetEncoder()))
+        else:  # pragma: no cover - defensive
+            raise ValueError("Unknown categorical_encoder")
         cat_pipe = Pipeline(cat_steps)
         transformers.append(("cat", cat_pipe, self.schema.categorical))
 
@@ -280,7 +336,8 @@ class DatasetManager:
         if not self.pipeline:
             self.build_pipeline()
         X = train_df[self.schema.numeric + self.schema.categorical]
-        self.pipeline.fit(X)
+        y = train_df[self.schema.target] if self.schema.target else None
+        self.pipeline.fit(X, y)
 
     def transform(self, df: pd.DataFrame) -> np.ndarray:
         if not self.pipeline:
@@ -354,5 +411,32 @@ class DatasetManager:
 
 
 
-__all__ = ["DatasetManager", "Schema", "ImputationConfig", "PipelineConfig"]
+# ------------------------------------------------------------------
+# Natural language templates
+# ------------------------------------------------------------------
 
+def run_template(dm: "DatasetManager", command: str, **kwargs):
+    """Execute high level operations based on simple NL commands."""
+    if command == "build preprocessing pipeline with robust scaler and power transform yeo-johnson":
+        dm.pipeline_cfg = PipelineConfig(use_robust_scaler=True, power_transform="yeo-johnson")
+        return dm.build_pipeline()
+    if command == "fit pipeline on train_df":
+        return dm.fit(kwargs["train_df"])
+    if command == "transform val_df as X_val":
+        return dm.transform(kwargs["val_df"])
+    if command == "stratified split df by y with test size 0.2 and val size 0.1":
+        return dm.train_val_test_split(
+            kwargs["df"], stratify=kwargs["y"], test_size=0.2, val_size=0.1
+        )
+    if command == "handle rare categories under 1% in df":
+        return dm.handle_rare_categories(kwargs["df"], threshold=0.01)
+    if command == "apply smote to X and y":
+        return dm.apply_resampling(kwargs["X"], kwargs["y"], method="smote")
+    if command == "save pipeline to prep.pkl":
+        return dm.save_pipeline("prep.pkl")
+    if command == "load pipeline from prep.pkl":
+        return dm.load_pipeline("prep.pkl")
+    raise ValueError(f"Unknown command: {command}")
+
+
+__all__ = ["DatasetManager", "Schema", "ImputationConfig", "PipelineConfig", "run_template"]
