@@ -99,7 +99,6 @@ class PipelineConfig:
     categorical_encoder: str = "onehot"
 
 
-
 class FrequencyEncoder(BaseEstimator, TransformerMixin):
     """Frequency encoder usable within scikit-learn pipelines."""
 
@@ -544,11 +543,10 @@ class DatasetManager:
         df[column] = labels
         return df
 
-
-
 # ------------------------------------------------------------------
 # Natural language templates
 # ------------------------------------------------------------------
+
 
 def run_template(dm: "DatasetManager", command: str, **kwargs):
     """Execute high level operations based on simple NL commands."""

@@ -14,6 +14,7 @@ def _parse_version(v: str) -> tuple[int, ...]:
             break
     return tuple(parts)
 
+
 try:  # pragma: no cover - optional dependency
     import pandas as pd  # type: ignore
     _version = _parse_version(pd.__version__)
