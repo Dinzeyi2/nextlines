@@ -485,9 +485,13 @@ class DatasetManager:
         y: np.ndarray,
         method: str = "smote",
     ) -> Tuple[np.ndarray, np.ndarray]:
-        if method == "smote" and SMOTE:
+        if method == "smote":
+            if SMOTE is None:
+                raise ValueError("Install imblearn to use SMOTE/ADASYN")
             sampler = SMOTE(random_state=self.random_state)
-        elif method == "adasyn" and ADASYN:
+        elif method == "adasyn":
+            if ADASYN is None:
+                raise ValueError("Install imblearn to use SMOTE/ADASYN")
             sampler = ADASYN(random_state=self.random_state)
         else:
             raise ValueError("Requested resampling method not available")

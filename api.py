@@ -90,6 +90,16 @@ def execute(req: CommandRequest):
             output=result if success else "",
             error=None if success else result,
         )
+    except ValueError as exc:
+        duration = time.time() - start
+        msg = _sanitize_error(str(exc))
+        logger.error("cmd=%s duration=%.3fs error=%s", cmd, duration, msg)
+        return CommandResponse(
+            session_id=session.id,
+            success=False,
+            output="",
+            error=msg,
+        )
     except Exception as exc:
         duration = time.time() - start
         msg = _sanitize_error(str(exc))
