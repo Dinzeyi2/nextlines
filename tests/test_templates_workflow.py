@@ -1,14 +1,19 @@
-import pathlib, sys
+import pathlib
+import sys
+
 import pytest
+
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
-from templates import TASK_INVENTORY
-from templates import pandas as pandas_templates
-from templates import sklearn as sklearn_templates
+
+from templates import TASK_INVENTORY  # noqa: E402
+from templates import pandas as pandas_templates  # noqa: E402
+from templates import sklearn as sklearn_templates  # noqa: E402
 
 pytestmark = pytest.mark.skipif(
     not (pandas_templates.HAS_PANDAS and sklearn_templates.HAS_SKLEARN),
     reason="pandas and scikit-learn are required",
 )
+
 
 def test_inventory_contains_core_tasks():
     assert "read_csv" in TASK_INVENTORY["data_loading"]
