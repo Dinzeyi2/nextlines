@@ -44,6 +44,21 @@ TEMPLATES: Dict[str, Template] = {
         parameters={"path": "str", "sep": "str"},
         code="pd.read_csv({path!r}, sep={sep!r})",
     ),
+    "dropna": Template(
+        pattern="drop missing values",
+        parameters={},
+        code="df.dropna()",
+    ),
+    "merge": Template(
+        pattern="merge df1 with df2 on {on}",
+        parameters={"on": "str"},
+        code="df1.merge(df2, on={on!r})",
+    ),
+    "groupby": Template(
+        pattern="group by {column} with {agg}",
+        parameters={"column": "str", "agg": "str"},
+        code="df.groupby({column!r}).{agg}()",
+    ),
 }
 
 __all__ = ["TEMPLATES", "Template", "HAS_PANDAS"]
