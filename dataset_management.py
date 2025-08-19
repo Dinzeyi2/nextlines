@@ -23,7 +23,7 @@ Key features implemented:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import hashlib
 from pathlib import Path
 
@@ -500,11 +500,43 @@ class DatasetManager:
     # ------------------------------------------------------------------
     # Time-series CV extras
     # ------------------------------------------------------------------
-    def time_series_splits(self, n_splits: int, gap: int = 0, embargo: int = 0, expanding: bool = True, n_samples: Optional[int] = None):
-        """Yield train/test indices for time-series validation."""
-        n_samples = n_samples or 0
-        if not n_samples:
-            raise ValueError("n_samples must be provided")
+    def time_series_splits(
+        self,
+        n_splits: int,
+        gap: int = 0,
+        embargo: int = 0,
+        expanding: bool = True,
+        n_samples: Optional[int] = None,
+        df_or_length: Optional[Union[int, Sequence[Any], pd.DataFrame]] = None,
+    ):
+        """Yield train/test indices for time-series validation.
+
+        Parameters
+        ----------
+        n_splits:
+            Number of folds to create.
+        gap:
+            Number of samples to exclude between train and test indices.
+        embargo:
+            Additional samples to skip at the start of each test fold.
+        expanding:
+            If True, each training set includes all prior data. Otherwise it is
+            a rolling window.
+        n_samples:
+            Explicit number of samples. ``df_or_length`` is ignored if provided.
+        df_or_length:
+            Optional dataset or length from which to infer ``n_samples``. If a
+            DataFrame or array-like is supplied, its length is used. If an
+            integer is supplied, it is treated as the number of samples.
+        """
+        if n_samples is None:
+            if df_or_length is None:
+                raise ValueError("n_samples or df_or_length must be provided")
+            if hasattr(df_or_length, "__len__"):
+                n_samples = len(df_or_length)  # type: ignore[arg-type]
+            else:
+                n_samples = int(df_or_length)
+
         indices = np.arange(n_samples)
         fold_size = n_samples // (n_splits + 1)
         for i in range(n_splits):
@@ -528,6 +560,10 @@ class DatasetManager:
         expanding: bool = True,
         column: str = "fold",
     ) -> pd.DataFrame:
+        """Label each row of ``df`` with its corresponding time-series fold.
+
+        The number of samples is inferred automatically from ``df``.
+        """
         df = df.copy()
         n_samples = len(df)
         labels = np.full(n_samples, -1)
@@ -537,7 +573,7 @@ class DatasetManager:
                 gap=gap,
                 embargo=embargo,
                 expanding=expanding,
-                n_samples=n_samples,
+                df_or_length=df,
             )
         ):
             labels[test_idx] = i
@@ -630,7 +666,7 @@ def run_template(dm: "DatasetManager", command: str, **kwargs):
     ):
         return list(
             dm.time_series_splits(
-                n_splits=5, gap=7, embargo=3, expanding=True, n_samples=10000
+                n_splits=5, gap=7, embargo=3, expanding=True, df_or_length=10000
             )
         )
     if command == "validate df and coerce dtypes true, drop unexpected true, fail on error false":
