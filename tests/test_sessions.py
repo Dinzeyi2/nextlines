@@ -1,15 +1,4 @@
-import importlib.machinery
-import pathlib
-import types
-
-path = pathlib.Path(__file__).resolve().parents[1] / "codefull"
-loader = importlib.machinery.SourceFileLoader("codefull_module", str(path))
-codefull = types.ModuleType("codefull_module")
-loader.exec_module(codefull)
-
-start_session = codefull.start_session
-resume_session = codefull.resume_session
-terminate_session = codefull.terminate_session
+from codefull import resume_session, start_session, terminate_session
 
 
 def test_variable_reuse_across_turns():

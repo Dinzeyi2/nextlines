@@ -1,13 +1,4 @@
-import importlib.machinery
-import pathlib
-import types
-
-path = pathlib.Path(__file__).resolve().parents[1] / "codefull"
-loader = importlib.machinery.SourceFileLoader("codefull_module", str(path))
-codefull = types.ModuleType("codefull_module")
-loader.exec_module(codefull)
-NaturalLanguageExecutor = codefull.NaturalLanguageExecutor
-ExecutionTemplate = codefull.ExecutionTemplate
+from codefull import ExecutionTemplate, NaturalLanguageExecutor
 
 
 def test_unknown_command_message():
