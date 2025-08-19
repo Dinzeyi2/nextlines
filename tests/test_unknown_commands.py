@@ -16,7 +16,6 @@ def test_unknown_command_message():
     assert "Sorry, I don't understand" in result
 
 
-
 def test_map_to_code_unknown_template():
     executor = NaturalLanguageExecutor()
     template = ExecutionTemplate("foo", "nonexistent")

@@ -39,7 +39,10 @@ class MLCodeGenerator:
     def _cosine(self, v1: Counter, v2: Counter) -> float:
         inter = set(v1) & set(v2)
         num = sum(v1[t] * v2[t] for t in inter)
-        denom = math.sqrt(sum(c*c for c in v1.values())) * math.sqrt(sum(c*c for c in v2.values()))
+        denom = (
+            math.sqrt(sum(c * c for c in v1.values()))
+            * math.sqrt(sum(c * c for c in v2.values()))
+        )
         return num / denom if denom else 0.0
 
     def predict_with_score(self, text: str) -> Tuple[str, float]:
@@ -73,7 +76,10 @@ class MLCodeGenerator:
         return self.predict_with_score(text)[0]
 
     def save(self, path: str | Path) -> None:
-        data = {"queries": [" ".join(q) for q in self.queries], "codes": self.codes}
+        data = {
+            "queries": [" ".join(q) for q in self.queries],
+            "codes": self.codes,
+        }
         Path(path).write_text(json.dumps(data))
 
     @classmethod

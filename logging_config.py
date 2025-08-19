@@ -13,7 +13,9 @@ _LOG_RECORD_DEFAULT_KEYS = {
 class JsonFormatter(logging.Formatter):
     """Logging formatter that outputs records as JSON."""
 
-    def format(self, record: logging.LogRecord) -> str:  # type: ignore[override]
+    def format(  # type: ignore[override]
+        self, record: logging.LogRecord
+    ) -> str:
         log_record: Dict[str, Any] = {
             "time": self.formatTime(record, self.datefmt),
             "level": record.levelname,
@@ -21,7 +23,9 @@ class JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
         extras = {
-            k: v for k, v in record.__dict__.items() if k not in _LOG_RECORD_DEFAULT_KEYS
+            k: v
+            for k, v in record.__dict__.items()
+            if k not in _LOG_RECORD_DEFAULT_KEYS
         }
         if extras:
             log_record.update(extras)
