@@ -9,6 +9,45 @@ schema and create train/validation/test splits.
 Commands are sent to the `/parse` endpoint, which behaves the same as the
 legacy `/execute` endpoint kept for backward compatibility.
 
+## Requirements
+
+The project relies on a few Python packages:
+
+* **Mandatory**: [`pandas`](https://pandas.pydata.org/) and [`scikit-learn`](https://scikit-learn.org/)
+  for dataframe operations and ML utilities.
+* **Optional**: [`sentence_transformers`](https://www.sbert.net/) enables an
+  embedding-based ML fallback when rule-based parsing fails.
+
+## Installation
+
+Install the mandatory packages first:
+
+```bash
+pip install pandas scikit-learn
+```
+
+To enable the ML fallback, install the additional dependency:
+
+```bash
+pip install sentence-transformers
+```
+
+## ML fallback example
+
+With the optional model installed, unknown commands fall back to an
+embedding-based parser:
+
+```python
+from execution import NaturalLanguageExecutor
+
+executor = NaturalLanguageExecutor()
+result = executor.execute("fit a linear regression model using X and y")
+print(result)
+```
+
+The example above generates and executes Python code even when no
+rule-based template matches the query.
+
 ## How to phrase commands
 
 Copy and adapt the examples below:
