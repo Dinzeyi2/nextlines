@@ -12,6 +12,8 @@ import multiprocessing
 import resource
 import logging
 from pathlib import Path
+import uuid
+import copy
 
 try:
     from ml_parser import MLCodeGenerator
@@ -487,6 +489,7 @@ class ExecutionContext:
         self.output_buffer = StringIO()
         self.current_class = None  # NEW: Track current class being defined
         self.current_function = None  # NEW: Track current function being defined
+        self._history = []
         
     def add_variable(self, name: str, value: Any):
         self.variables[name] = value
@@ -528,12 +531,95 @@ class ExecutionContext:
     def print_output(self, *args, **kwargs):
         """Custom print function that captures output"""
         print(*args, file=self.output_buffer, **kwargs)
-    
+
     def get_output(self) -> str:
         """Get captured output"""
         content = self.output_buffer.getvalue()
         self.output_buffer = StringIO()  # Reset buffer
         return content
+
+    def save_state(self):
+        """Save current state for undo"""
+        state = {
+            "variables": copy.deepcopy(self.variables),
+            "functions": copy.deepcopy(self.functions),
+            "classes": copy.deepcopy(self.classes),
+            "objects": copy.deepcopy(self.objects),
+            "function_definitions": copy.deepcopy(self.function_definitions),
+            "imports": copy.deepcopy(self.imports),
+            "last_assigned_variable": self.last_assigned_variable,
+            "last_collection": self.last_collection,
+            "current_class": self.current_class,
+            "current_function": self.current_function,
+        }
+        self._history.append(state)
+
+    def undo(self):
+        """Undo to previous saved state"""
+        if not self._history:
+            return
+        state = self._history.pop()
+        self.variables = state["variables"]
+        self.functions = state["functions"]
+        self.classes = state["classes"]
+        self.objects = state["objects"]
+        self.function_definitions = state["function_definitions"]
+        self.imports = state["imports"]
+        self.last_assigned_variable = state["last_assigned_variable"]
+        self.last_collection = state["last_collection"]
+        self.current_class = state["current_class"]
+        self.current_function = state["current_function"]
+
+
+class Session:
+    """Holds execution context, code history, and conversation history."""
+    def __init__(self, session_id: Optional[str] = None):
+        self.id = session_id or str(uuid.uuid4())
+        self.context = ExecutionContext()
+        self.code_history: List[str] = []
+        self.conversation_history: List[Tuple[str, str]] = []
+
+    @property
+    def variables(self) -> Dict[str, Any]:
+        return self.context.variables
+
+    def add_code_block(self, code: str):
+        self.code_history.append(code)
+
+    def add_message(self, role: str, message: str):
+        self.conversation_history.append((role, message))
+
+
+class SessionManager:
+    """Manage multiple sessions."""
+    def __init__(self):
+        self.sessions: Dict[str, Session] = {}
+
+    def start_session(self, session_id: Optional[str] = None) -> Session:
+        session = Session(session_id)
+        self.sessions[session.id] = session
+        return session
+
+    def resume_session(self, session_id: str) -> Optional[Session]:
+        return self.sessions.get(session_id)
+
+    def terminate_session(self, session_id: str):
+        self.sessions.pop(session_id, None)
+
+
+_session_manager = SessionManager()
+
+
+def start_session(session_id: Optional[str] = None) -> Session:
+    return _session_manager.start_session(session_id)
+
+
+def resume_session(session_id: str) -> Optional[Session]:
+    return _session_manager.resume_session(session_id)
+
+
+def terminate_session(session_id: str):
+    _session_manager.terminate_session(session_id)
 
 class ParameterExtractor:
     def __init__(self, context: ExecutionContext):
