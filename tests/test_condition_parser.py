@@ -1,13 +1,6 @@
-import importlib.machinery
-import pathlib
-import types
 import pytest
 
-path = pathlib.Path(__file__).resolve().parents[1] / "codefull"
-loader = importlib.machinery.SourceFileLoader("codefull_module", str(path))
-codefull = types.ModuleType("codefull_module")
-loader.exec_module(codefull)
-NaturalLanguageExecutor = codefull.NaturalLanguageExecutor
+from codefull import NaturalLanguageExecutor
 
 
 def test_convert_condition_nested():
