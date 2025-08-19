@@ -79,3 +79,19 @@ Send a POST request to `/parse` (or `/execute` for backward compatibility):
 curl -X POST localhost:8000/parse -H 'Content-Type: application/json' \
      -d '{"command": "load csv file data.csv into df"}'
 ```
+
+## Security model
+
+The `PythonExecutor` executes generated Python code in a restricted
+environment designed to prevent misuse:
+
+* The abstract syntax tree is validated to block `import` and `from` statements
+  and to disallow calls to `eval`, `exec`, `__import__`, and `open`.
+* Only a small whitelist of safe built-ins (e.g. `print`, `len`, `range`) is
+  exposed to executed code; all other built-ins are unavailable.
+* Code runs in a separate subprocess with CPU time limited to one second and
+  address space capped at roughly 50 MB via `resource` limits.
+* The subprocess is terminated if execution exceeds a one‑second timeout.
+
+These safeguards make code execution best-effort safe while still supporting
+basic educational and data‑science snippets.
