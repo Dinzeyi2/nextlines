@@ -17,9 +17,11 @@ def _parse_version(v: str) -> tuple[int, ...]:
 try:  # pragma: no cover - optional dependency
     import sklearn  # type: ignore
     from sklearn.preprocessing import StandardScaler  # noqa: F401
+    from sklearn.preprocessing import PolynomialFeatures  # noqa: F401
     from sklearn.linear_model import LogisticRegression  # noqa: F401
     from sklearn.model_selection import train_test_split  # noqa: F401
     from sklearn.decomposition import PCA  # noqa: F401
+    from sklearn.metrics import accuracy_score  # noqa: F401
     from sklearn.ensemble import RandomForestClassifier  # noqa: F401
     _version = _parse_version(sklearn.__version__)
     HAS_SKLEARN = _version >= (1, 0, 0)
@@ -56,6 +58,11 @@ TEMPLATES: Dict[str, Template] = {
         parameters={"n_components": "int"},
         code="pca = PCA(n_components={n_components});\ntransformed = pca.fit_transform(X)",
     ),
+    "polynomial_features": Template(
+        pattern="generate polynomial features of degree {degree}",
+        parameters={"degree": "int"},
+        code="poly = PolynomialFeatures(degree={degree});\nfeatures = poly.fit_transform(X)",
+    ),
     "logistic_regression": Template(
         pattern="fit logistic regression",
         parameters={},
@@ -65,6 +72,11 @@ TEMPLATES: Dict[str, Template] = {
         pattern="fit random forest classifier",
         parameters={},
         code="model = RandomForestClassifier();\nmodel.fit(X, y)",
+    ),
+    "accuracy_score": Template(
+        pattern="compute accuracy score",
+        parameters={},
+        code="score = accuracy_score(y_true, y_pred)",
     ),
 }
 

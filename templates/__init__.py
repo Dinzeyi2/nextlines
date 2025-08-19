@@ -23,6 +23,13 @@ TASK_INVENTORY = {
         "logistic_regression": sklearn.TEMPLATES.get("logistic_regression"),
         "random_forest": sklearn.TEMPLATES.get("random_forest"),
     },
+    "feature_engineering": {
+        "one_hot_encode": pandas.TEMPLATES.get("one_hot_encode"),
+        "polynomial_features": sklearn.TEMPLATES.get("polynomial_features"),
+    },
+    "model_evaluation": {
+        "accuracy_score": sklearn.TEMPLATES.get("accuracy_score"),
+    },
 }
 
 __all__ = ["TASK_INVENTORY", "pandas", "sklearn"]
