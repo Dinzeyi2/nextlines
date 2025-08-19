@@ -1,6 +1,6 @@
 import pytest
 
-from codefull import PythonExecutor
+from execution import PythonExecutor
 
 
 def test_benign_code():

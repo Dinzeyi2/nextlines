@@ -1,4 +1,5 @@
-from codefull import ExecutionTemplate, NaturalLanguageExecutor
+from parsing import ExecutionTemplate
+from execution import NaturalLanguageExecutor
 
 
 def test_unknown_command_message():
