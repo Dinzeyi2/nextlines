@@ -754,7 +754,7 @@ class NaturalLanguageExecutor:
         self.templates = self._load_templates()
         self.code_generator = PythonCodeGenerator()  # NEW: Real code generation
         self.python_executor = PythonExecutor()  # NEW: Real Python execution
-        self.execution_mode = "hybrid"  # NEW: "simulation", "real", or "hybrid"
+        self.execution_mode = "hybrid"  # default: try real execution then fall back to simulation
         self.ml_parser: MLCodeGenerator | None = None
         self.dataset_manager = None
 
@@ -767,7 +767,12 @@ class NaturalLanguageExecutor:
                 self.ml_parser = None
         
     def set_execution_mode(self, mode: str):
-        """Set execution mode: simulation, real, or hybrid"""
+        """Set execution mode.
+
+        - ``simulation``: always use internal state updates and skip real code execution.
+        - ``real``: execute only generated Python code with no simulation fallback.
+        - ``hybrid``: attempt real execution then fall back to simulation on failure.
+        """
         if mode in ["simulation", "real", "hybrid"]:
             self.execution_mode = mode
         else:
@@ -1188,6 +1193,9 @@ class NaturalLanguageExecutor:
     
     def _execute_with_real_python(self, code: str) -> str:
         """Execute real Python code and return result"""
+        if self.execution_mode == "simulation":
+            return "\u2713 Simulation mode: code execution skipped"
+
         result = self.python_executor.execute_code(code)
         
         if result["success"]:
@@ -5633,21 +5641,29 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             return message
         
         # AUTOMATIC REAL PYTHON CODE GENERATION AND EXECUTION
-        try:
-            # Generate real Python code
-            python_code = self.map_to_code(best_template, parameters)
+        if self.execution_mode in ("real", "hybrid"):
+            try:
+                # Generate real Python code
+                python_code = self.map_to_code(best_template, parameters)
 
-            if isinstance(python_code, str) and not python_code.startswith("# Error"):
-                # Execute the real Python code
-                execution_result = self._execute_with_real_python(python_code)
+                if isinstance(python_code, str) and not python_code.startswith("# Error"):
+                    # Execute the real Python code
+                    execution_result = self._execute_with_real_python(python_code)
 
-                # Return natural language result
-                return execution_result
-            
-        except Exception as e:
-            # If real execution fails, fall back to simulation with error note
-            pass
-        
+                    # Return natural language result
+                    return execution_result
+
+                if self.execution_mode == "real":
+                    return python_code if isinstance(python_code, str) else "\u2717 Error generating code"
+
+            except Exception as e:
+                if self.execution_mode == "real":
+                    return f"\u2717 Error executing command: {str(e)}"
+                # In hybrid mode, fall back to simulation
+
+        if self.execution_mode == "real":
+            return "\u2717 Unable to execute command"
+
         # Fallback to simulation for cases not yet mapped to real code
         try:
             execution_method = getattr(self, best_template.execution_func)
