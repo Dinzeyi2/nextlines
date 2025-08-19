@@ -15,21 +15,6 @@ app = FastAPI()
 logger = logging.getLogger("api")
 logging.basicConfig(level=logging.INFO)
 
-ALLOWED_COMMANDS = {
-    "load",
-    "clean",
-    "encode",
-    "scale",
-    "split",
-    "build",
-    "fit",
-    "transform",
-    "evaluate",
-    "save",
-    "train",
-    "reset",
-}
-
 class CommandRequest(BaseModel):
     command: str
     session_id: str | None = None
@@ -57,7 +42,6 @@ def _get_session(session_id: str | None):
 def execute(req: CommandRequest):
     start = time.time()
     cmd = req.command.strip()
-    first = cmd.split(" ", 1)[0].lower()
 
     if cmd.lower() == "reset session":
         if req.session_id:
@@ -65,10 +49,6 @@ def execute(req: CommandRequest):
         session = start_session()
         logger.info("cmd='reset session' duration=%.3fs success=True", time.time() - start)
         return CommandResponse(session_id=session.id, success=True, output="Session reset.")
-
-    if first not in ALLOWED_COMMANDS:
-        logger.warning("cmd=%s not allowed", cmd)
-        raise HTTPException(status_code=400, detail="Command not permitted.")
 
     session = _get_session(req.session_id)
     executor = NaturalLanguageExecutor()
