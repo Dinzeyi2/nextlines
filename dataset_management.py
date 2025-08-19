@@ -543,6 +543,7 @@ class DatasetManager:
 # Natural language templates
 # ------------------------------------------------------------------
 
+
 def run_template(dm: "DatasetManager", command: str, **kwargs):
     """Execute high level operations based on simple NL commands."""
     if command == "build pipeline with options":
