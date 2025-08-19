@@ -26,6 +26,27 @@ def test_disallowed_eval():
     assert "Disallowed" in result["error"]
 
 
+def test_disallowed_open():
+    executor = PythonExecutor()
+    result = executor.execute_code("open('foo.txt', 'w')")
+    assert result["success"] is False
+    assert "Disallowed" in result["error"]
+
+
+def test_disallowed_exec():
+    executor = PythonExecutor()
+    result = executor.execute_code("exec('print(1)')")
+    assert result["success"] is False
+    assert "Disallowed" in result["error"]
+
+
+def test_disallowed_dunder_import():
+    executor = PythonExecutor()
+    result = executor.execute_code("__import__('os')")
+    assert result["success"] is False
+    assert "Disallowed" in result["error"]
+
+
 def test_timeout_loop():
     executor = PythonExecutor()
     result = executor.execute_code("while True:\n    pass")
