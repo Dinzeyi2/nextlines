@@ -1,4 +1,4 @@
-from codefull import resume_session, start_session, terminate_session
+from execution import resume_session, start_session, terminate_session
 
 
 def test_variable_reuse_across_turns():

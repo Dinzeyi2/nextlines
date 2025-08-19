@@ -1,10 +1,7 @@
 import pytest
 
-from codefull import (
-    ExecutionContext,
-    ParameterExtractionError,
-    ParameterExtractor,
-)
+from execution import ExecutionContext
+from parsing import ParameterExtractionError, ParameterExtractor
 
 
 def make_extractor():

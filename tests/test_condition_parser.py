@@ -1,6 +1,6 @@
 import pytest
 
-from codefull import NaturalLanguageExecutor
+from execution import NaturalLanguageExecutor
 
 
 def test_convert_condition_nested():
