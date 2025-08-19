@@ -123,27 +123,3 @@ def test_evaluate_without_pipeline_fails(client, csv_file):
     data = resp.json()
     assert not data["success"]
     assert "pipeline" in data["error"].lower()
-
-
-def test_dataset_manager_workflow(client, csv_file):
-    sid = _post(client, f"load csv file {csv_file} into df").json()["session_id"]
-    resp = _post(client, "dataset_load df target target", sid)
-    assert resp.status_code == 200
-    assert resp.json()["success"]
-
-    resp = _post(client, "dataset_validate df", sid)
-    assert resp.status_code == 200
-    assert resp.json()["success"]
-
-    resp = _post(client, "dataset_split df", sid)
-    assert resp.status_code == 200
-    assert resp.json()["success"]
-
-
-def test_dataset_validate_without_load_fails(client, csv_file):
-    sid = _post(client, f"load csv file {csv_file} into df").json()["session_id"]
-    resp = _post(client, "dataset_validate df", sid)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert not data["success"]
-    assert "dataset manager" in data["error"].lower()

@@ -21,8 +21,12 @@ except Exception:  # pragma: no cover - fallback when dependency missing
     MLCodeGenerator = None
 
 logger = logging.getLogger(__name__)
-from parsing import (ParameterExtractionError, ParameterType, ExecutionTemplate, ParameterExtractor)
-from dataset_commands import DatasetCommandMixin
+from parsing import (
+    ParameterExtractionError,
+    ParameterType,
+    ExecutionTemplate,
+    ParameterExtractor,
+)
 
 
 class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL templates
@@ -566,7 +570,7 @@ def resume_session(session_id: str) -> Optional[Session]:
 def terminate_session(session_id: str):
     _session_manager.terminate_session(session_id)
 
-class NaturalLanguageExecutor(DatasetCommandMixin):
+class NaturalLanguageExecutor:
     def __init__(self):
         self.context = ExecutionContext()
         self.extractor = ParameterExtractor(self.context)
@@ -575,7 +579,6 @@ class NaturalLanguageExecutor(DatasetCommandMixin):
         self.python_executor = PythonExecutor()  # NEW: Real Python execution
         self.execution_mode = "hybrid"  # default: try real execution then fall back to simulation
         self.ml_parser: MLCodeGenerator | None = None
-        self.dataset_manager = None
 
         # Load ML parser if a trained model exists
         model_path = Path("models/ml_parser.json")
@@ -5355,55 +5358,10 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
         )
         return self._execute_with_real_python(code)
 
-    # ------------------------------------------------------------------
-    # Dataset manager commands
-    # ------------------------------------------------------------------
-
-    def _dataset_load(self, df_name: str, target: str) -> str:
-        from dataset_management import DatasetManager, Schema  # type: ignore
-        import pandas as pd  # noqa: F401
-
-        df = self.context.get_variable(df_name)
-        if df is None:
-            return "\u2717 dataframe not found"
-        numeric = [c for c in df.select_dtypes(include="number").columns if c != target]
-        categorical = [
-            c for c in df.select_dtypes(exclude="number").columns if c != target
-        ]
-        dtypes = {c: str(df[c].dtype) for c in df.columns}
-        schema = Schema(numeric=numeric, categorical=categorical, target=target, dtypes=dtypes)
-        self.dataset_manager = DatasetManager(schema)
-        return "dataset manager loaded"
-
-    def _dataset_validate(self, df_name: str) -> str:
-        if self.dataset_manager is None:
-            return "\u2717 dataset manager not loaded"
-        df = self.context.get_variable(df_name)
-        if df is None:
-            return "\u2717 dataframe not found"
-        report = self.dataset_manager.validate(df)
-        return str(report)
-
-    def _dataset_split(self, df_name: str) -> str:
-        if self.dataset_manager is None:
-            return "\u2717 dataset manager not loaded"
-        df = self.context.get_variable(df_name)
-        if df is None:
-            return "\u2717 dataframe not found"
-        train, val, test, *_ = self.dataset_manager.train_val_test_split(df)
-        self.context.add_variable("train_df", train)
-        self.context.add_variable("val_df", val)
-        self.context.add_variable("test_df", test)
-        return "dataset split into train_df, val_df, test_df"
-    
     def execute(self, user_input: str) -> str:
         """Main execution function - PURE NATURAL LANGUAGE WITH AUTOMATIC REAL PYTHON EXECUTION"""
         user_input = user_input.strip()
         lower_input = user_input.lower()
-
-        cmd_result = self.handle_dataset_command(user_input)
-        if cmd_result is not None:
-            return cmd_result
 
         # Handle context-dependent references
         if "the list" in lower_input and self.context.last_collection:
