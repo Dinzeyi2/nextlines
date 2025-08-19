@@ -1,10 +1,19 @@
 from __future__ import annotations
 import json
+import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple
 from collections import Counter
 import math
+
+from logging_config import configure_logging
+from monitoring import REQUEST_COUNT, REQUEST_LATENCY, init_monitoring
+
+configure_logging()
+init_monitoring(os.getenv("SENTRY_DSN"))
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -34,17 +43,31 @@ class MLCodeGenerator:
         return num / denom if denom else 0.0
 
     def predict_with_score(self, text: str) -> Tuple[str, float]:
-        tokens = text.lower().split()
-        vec = self._vectorize(tokens)
-        best_score = -1.0
-        best_code = ""
-        for q_tokens, code in zip(self.queries, self.codes):
-            score = self._cosine(vec, self._vectorize(q_tokens))
-            if score > best_score:
-                best_score = score
-                best_code = code
-        distance = 1.0 - best_score
-        return best_code, distance
+        REQUEST_COUNT.inc()
+        with REQUEST_LATENCY.time():
+            try:
+                tokens = text.lower().split()
+                vec = self._vectorize(tokens)
+                best_score = -1.0
+                best_code = ""
+                for q_tokens, code in zip(self.queries, self.codes):
+                    score = self._cosine(vec, self._vectorize(q_tokens))
+                    if score > best_score:
+                        best_score = score
+                        best_code = code
+                distance = 1.0 - best_score
+                logger.info(
+                    "prediction",
+                    extra={
+                        "request": text,
+                        "generated_code": best_code,
+                        "distance": distance,
+                    },
+                )
+                return best_code, distance
+            except Exception:
+                logger.exception("prediction_failed", extra={"request": text})
+                raise
 
     def predict(self, text: str) -> str:
         return self.predict_with_score(text)[0]
