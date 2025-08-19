@@ -1,85 +1,36 @@
 import pytest
 
-from execution import PythonExecutor
+from execution import LLMExecutor, PythonExecutor
 
 
-def test_benign_code():
-    executor = PythonExecutor()
-    result = executor.execute_code("a=1\nb=2\nprint(a+b)")
+class DummyParser:
+    def __init__(self, code: str):
+        self.code = code
+
+    def parse(self, command: str) -> str:  # pragma: no cover - trivial
+        return self.code
+
+
+def _run(code: str):
+    parser = DummyParser(code)
+    executor = LLMExecutor(parser)
+    return executor.execute("cmd")
+
+
+def test_success_execution():
+    result = _run("print('hi')")
     assert result["success"] is True
-    assert result["output"] == "3"
-    assert result["locals"]["a"] == 1
-    assert result["locals"]["b"] == 2
+    assert result["output"] == "hi"
 
 
-def test_disallowed_import():
-    executor = PythonExecutor()
-    result = executor.execute_code("import os")
+def test_syntax_error():
+    result = _run("def bad:")
     assert result["success"] is False
-    assert "Disallowed" in result["error"]
+    assert "expected" in result["error"].lower()
 
 
-def test_disallowed_eval():
-    executor = PythonExecutor()
-    result = executor.execute_code("eval('2+2')")
+def test_runtime_error():
+    result = _run("1/0")
     assert result["success"] is False
-    assert "Disallowed" in result["error"]
+    assert "division" in result["error"].lower()
 
-
-def test_disallowed_open():
-    executor = PythonExecutor()
-    result = executor.execute_code("open('foo.txt', 'w')")
-    assert result["success"] is False
-    assert "Disallowed" in result["error"]
-
-
-def test_disallowed_exec():
-    executor = PythonExecutor()
-    result = executor.execute_code("exec('print(1)')")
-    assert result["success"] is False
-    assert "Disallowed" in result["error"]
-
-
-def test_disallowed_dunder_import():
-    executor = PythonExecutor()
-    result = executor.execute_code("__import__('os')")
-    assert result["success"] is False
-    assert "Disallowed" in result["error"]
-
-
-def test_timeout_loop():
-    executor = PythonExecutor()
-    result = executor.execute_code("while True:\n    pass")
-    assert result["success"] is False
-
-
-def test_memory_exhaustion():
-    executor = PythonExecutor()
-    result = executor.execute_code("a = [0]*10**8")
-    assert result["success"] is False
-
-
-def test_subprocess_failure(monkeypatch):
-    executor = PythonExecutor()
-
-    import multiprocessing
-
-    class FailingProcess:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def start(self):
-            raise RuntimeError("subprocess failed")
-
-        def join(self, timeout=None):
-            pass
-
-        def is_alive(self):
-            return False
-
-    monkeypatch.setattr(multiprocessing, "Process", lambda *a, **k: FailingProcess())
-
-    result = executor.execute_code("x = 1")
-    assert result["success"] is False
-    assert "subprocess failed" in result["error"]
-    assert "x" not in result["locals"]

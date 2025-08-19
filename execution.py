@@ -15,6 +15,8 @@ from pathlib import Path
 import uuid
 import copy
 
+from llm_parser import LLMParser
+
 try:
     from ml_parser import MLCodeGenerator
 except Exception:  # pragma: no cover - fallback when dependency missing
@@ -425,6 +427,22 @@ class PythonExecutor:  # NEW: Real Python code execution
         """Set variable in execution context"""
         self.execution_locals[name] = value
 
+
+class LLMExecutor:
+    """Generate code via an LLM parser and execute it safely."""
+
+    def __init__(self, parser: LLMParser, python_executor: Optional[PythonExecutor] = None):
+        self.parser = parser
+        self.python_executor = python_executor or PythonExecutor()
+
+    def execute(self, command: str) -> Dict[str, Any]:
+        """Parse natural language command and execute resulting code."""
+        try:
+            code = self.parser.parse(command)
+        except Exception as e:  # pragma: no cover - parser errors
+            return {"success": False, "output": "", "locals": {}, "error": str(e)}
+        return self.python_executor.execute_code(code)
+
 class ExecutionContext:
     def __init__(self):
         self.variables = {}
@@ -574,7 +592,8 @@ class NaturalLanguageExecutor:
     def __init__(self):
         self.context = ExecutionContext()
         self.extractor = ParameterExtractor(self.context)
-        self.templates = self._load_templates()
+        # Template-based execution has been removed; use LLMExecutor instead.
+        self.templates: List[ExecutionTemplate] = []
         self.code_generator = PythonCodeGenerator()  # NEW: Real code generation
         self.python_executor = PythonExecutor()  # NEW: Real Python execution
         self.execution_mode = "hybrid"  # default: try real execution then fall back to simulation

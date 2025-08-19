@@ -5,6 +5,10 @@ pandas = pytest.importorskip("pandas")
 sklearn = pytest.importorskip("sklearn")
 
 from fastapi.testclient import TestClient
+import pytest
+
+pytestmark = pytest.mark.skip(reason="Template-based executor removed")
+
 from api import app
 
 
