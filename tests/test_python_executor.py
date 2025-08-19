@@ -36,3 +36,29 @@ def test_memory_exhaustion():
     executor = PythonExecutor()
     result = executor.execute_code("a = [0]*10**8")
     assert result["success"] is False
+
+
+def test_subprocess_failure(monkeypatch):
+    executor = PythonExecutor()
+
+    import multiprocessing
+
+    class FailingProcess:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def start(self):
+            raise RuntimeError("subprocess failed")
+
+        def join(self, timeout=None):
+            pass
+
+        def is_alive(self):
+            return False
+
+    monkeypatch.setattr(multiprocessing, "Process", lambda *a, **k: FailingProcess())
+
+    result = executor.execute_code("x = 1")
+    assert result["success"] is False
+    assert "subprocess failed" in result["error"]
+    assert "x" not in result["locals"]
