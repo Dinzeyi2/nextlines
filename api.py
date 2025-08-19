@@ -95,3 +95,8 @@ def execute(req: CommandRequest):
         msg = _sanitize_error(str(exc))
         logger.error("cmd=%s duration=%.3fs error=%s", cmd, duration, msg)
         raise HTTPException(status_code=500, detail=f"Execution failed: {msg}")
+
+
+@app.post("/parse", response_model=CommandResponse)
+def parse(req: CommandRequest):
+    return execute(req)

@@ -3,6 +3,8 @@
 This prototype exposes a tiny HTTP API for issuing controlled data-science
 commands in natural language. Only a small set of high‑level actions is allowed
 (e.g. load, clean, encode, scale, split, build, fit, transform, evaluate, save).
+Commands are sent to the `/parse` endpoint, which behaves the same as the
+legacy `/execute` endpoint kept for backward compatibility.
 
 ## How to phrase commands
 
@@ -21,9 +23,9 @@ save pipeline to model.joblib
 reset session
 ```
 
-Send a POST request to `/execute`:
+Send a POST request to `/parse` (or `/execute` for backward compatibility):
 
 ```bash
-curl -X POST localhost:8000/execute -H 'Content-Type: application/json' \
+curl -X POST localhost:8000/parse -H 'Content-Type: application/json' \
      -d '{"command": "load csv file data.csv into df"}'
 ```
