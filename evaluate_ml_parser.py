@@ -10,7 +10,11 @@ TEST_PATH = Path("data/test_corpus.json")
 
 
 def main() -> None:
-    parser = MLCodeGenerator.load(MODEL_PATH)
+    try:
+        parser = MLCodeGenerator.load(MODEL_PATH)
+    except ImportError as exc:
+        print(exc)
+        return
     test_data = json.loads(TEST_PATH.read_text())
     total = len(test_data)
     correct_intent = 0
