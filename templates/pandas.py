@@ -59,6 +59,11 @@ TEMPLATES: Dict[str, Template] = {
         parameters={"column": "str", "agg": "str"},
         code="df.groupby({column!r}).{agg}()",
     ),
+    "one_hot_encode": Template(
+        pattern="one-hot encode columns {columns}",
+        parameters={"columns": "list[str]"},
+        code="pd.get_dummies(df, columns={columns!r})",
+    ),
 }
 
 __all__ = ["TEMPLATES", "Template", "HAS_PANDAS"]
