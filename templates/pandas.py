@@ -1,0 +1,49 @@
+"""Pandas templates for data loading operations with version guards."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Dict, Any
+
+
+def _parse_version(v: str) -> tuple[int, ...]:
+    parts = []
+    for p in v.split("."):
+        if p.isdigit():
+            parts.append(int(p))
+        else:
+            break
+    return tuple(parts)
+
+try:  # pragma: no cover - optional dependency
+    import pandas as pd  # type: ignore
+    _version = _parse_version(pd.__version__)
+    HAS_PANDAS = _version >= (1, 0, 0)
+except Exception:  # pragma: no cover - pandas missing
+    pd = None  # type: ignore
+    HAS_PANDAS = False
+
+
+@dataclass
+class Template:
+    """Simple code generation template."""
+
+    pattern: str
+    parameters: Dict[str, Any]
+    code: str
+
+    def generate(self, **kwargs: Any) -> str:
+        missing = set(self.parameters) - set(kwargs)
+        if missing:
+            raise ValueError(f"Missing parameters: {missing}")
+        return self.code.format(**kwargs)
+
+
+TEMPLATES: Dict[str, Template] = {
+    "read_csv": Template(
+        pattern="load CSV file at {path}",
+        parameters={"path": "str", "sep": "str"},
+        code="pd.read_csv({path!r}, sep={sep!r})",
+    ),
+}
+
+__all__ = ["TEMPLATES", "Template", "HAS_PANDAS"]
