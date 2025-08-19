@@ -11,6 +11,12 @@ import ast
 import multiprocessing
 import resource
 import logging
+from pathlib import Path
+
+try:
+    from ml_parser import MLCodeGenerator
+except Exception:  # pragma: no cover - fallback when dependency missing
+    MLCodeGenerator = None
 
 logger = logging.getLogger(__name__)
 
@@ -663,6 +669,15 @@ class NaturalLanguageExecutor:
         self.code_generator = PythonCodeGenerator()  # NEW: Real code generation
         self.python_executor = PythonExecutor()  # NEW: Real Python execution
         self.execution_mode = "hybrid"  # NEW: "simulation", "real", or "hybrid"
+        self.ml_parser: MLCodeGenerator | None = None
+
+        # Load ML parser if a trained model exists
+        model_path = Path("models/ml_parser.json")
+        if MLCodeGenerator and model_path.exists():  # pragma: no cover - optional model
+            try:
+                self.ml_parser = MLCodeGenerator.load(model_path)
+            except Exception:
+                self.ml_parser = None
         
     def set_execution_mode(self, mode: str):
         """Set execution mode: simulation, real, or hybrid"""
@@ -1112,6 +1127,18 @@ class NaturalLanguageExecutor:
             return " | ".join(output_parts)
         else:
             return f"✗ Python Error: {result['error']}"
+
+    def _ml_fallback(self, text: str) -> Optional[str]:
+        """Try ML parser when rule-based match fails."""
+        if not self.ml_parser:
+            return None
+        code, distance = self.ml_parser.predict_with_score(text)
+        if distance >= 0.5:
+            return None
+        try:
+            return self._execute_with_real_python(code)
+        except Exception:
+            return None
         
     def _load_templates(self) -> List[ExecutionTemplate]:
         """Load comprehensive execution templates for all Python constructs"""
@@ -5434,6 +5461,9 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
                 best_template = template
 
         if best_template is None or best_score < 0.3:
+            ml_result = self._ml_fallback(user_input)
+            if ml_result:
+                return ml_result
             logger.info("Unsupported phrase: %s", user_input)
             suggestion = difflib.get_close_matches(user_input, patterns, n=1)
             message = f"✗ Sorry, I don't understand: '{user_input}'"
@@ -5446,6 +5476,9 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
 
         missing_params = [p for p in best_template.parameters if p not in parameters]
         if missing_params:
+            ml_result = self._ml_fallback(user_input)
+            if ml_result:
+                return ml_result
             logger.info("Unsupported phrase: %s", user_input)
             suggestion = difflib.get_close_matches(user_input, patterns, n=1)
             message = f"✗ Sorry, I don't understand: '{user_input}'"
@@ -5476,6 +5509,9 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             return result
 
         except AttributeError:
+            ml_result = self._ml_fallback(user_input)
+            if ml_result:
+                return ml_result
             logger.info("Unsupported phrase: %s", user_input)
             suggestion = difflib.get_close_matches(user_input, patterns, n=1)
             message = f"✗ Sorry, I don't understand: '{user_input}'"
