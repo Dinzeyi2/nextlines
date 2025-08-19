@@ -14,6 +14,7 @@ def _parse_version(v: str) -> tuple[int, ...]:
             break
     return tuple(parts)
 
+
 try:  # pragma: no cover - optional dependency
     import sklearn  # type: ignore
     from sklearn.preprocessing import StandardScaler  # noqa: F401
