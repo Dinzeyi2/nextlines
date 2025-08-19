@@ -421,44 +421,12 @@ class PythonExecutor:  # NEW: Real Python code execution
                 }
             result = queue.get(timeout=1)
         except Exception as e:
-            import sys
-            import pickle
-            from io import StringIO
-
-            globals_env = {'__builtins__': self.allowed_builtins}
-            globals_env.update(self.execution_globals)
-            locals_env = self.execution_locals
-
-            old_stdout = sys.stdout
-            captured_output = StringIO()
-            sys.stdout = captured_output
-
-            try:
-                exec(code, globals_env, locals_env)
-                safe_locals = {}
-                for k, v in locals_env.items():
-                    try:
-                        pickle.dumps(v)
-                        safe_locals[k] = v
-                    except Exception:
-                        pass
-                self.execution_locals.update(safe_locals)
-                return {
-                    'success': True,
-                    'output': captured_output.getvalue().strip(),
-                    'locals': dict(self.execution_locals),
-                    'error': None
-                }
-            except Exception as exec_error:
-                return {
-                    'success': False,
-                    'output': captured_output.getvalue().strip(),
-                    'locals': dict(self.execution_locals),
-                    'error': str(exec_error)
-                }
-            finally:
-                sys.stdout = old_stdout
-                captured_output.close()
+            return {
+                'success': False,
+                'output': "",
+                'locals': dict(self.execution_locals),
+                'error': f'Subprocess execution failed: {e}'
+            }
         else:
             self.execution_locals.update(result.get('locals', {}))
             return {
