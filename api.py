@@ -28,6 +28,9 @@ ALLOWED_COMMANDS = {
     "save",
     "train",
     "reset",
+    "dataset_load",
+    "dataset_validate",
+    "dataset_split",
 }
 
 class CommandRequest(BaseModel):

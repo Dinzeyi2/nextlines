@@ -756,6 +756,7 @@ class NaturalLanguageExecutor:
         self.python_executor = PythonExecutor()  # NEW: Real Python execution
         self.execution_mode = "hybrid"  # NEW: "simulation", "real", or "hybrid"
         self.ml_parser: MLCodeGenerator | None = None
+        self.dataset_manager = None
 
         # Load ML parser if a trained model exists
         model_path = Path("models/ml_parser.json")
@@ -5526,13 +5527,72 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             "log_metric_mlflow", name=self.code_generator.format_value(metric), value=value
         )
         return self._execute_with_real_python(code)
+
+    # ------------------------------------------------------------------
+    # Dataset manager commands
+    # ------------------------------------------------------------------
+
+    def _dataset_load(self, df_name: str, target: str) -> str:
+        from dataset_management import DatasetManager, Schema  # type: ignore
+        import pandas as pd  # noqa: F401
+
+        df = self.context.get_variable(df_name)
+        if df is None:
+            return "\u2717 dataframe not found"
+        numeric = [c for c in df.select_dtypes(include="number").columns if c != target]
+        categorical = [
+            c for c in df.select_dtypes(exclude="number").columns if c != target
+        ]
+        dtypes = {c: str(df[c].dtype) for c in df.columns}
+        schema = Schema(numeric=numeric, categorical=categorical, target=target, dtypes=dtypes)
+        self.dataset_manager = DatasetManager(schema)
+        return "dataset manager loaded"
+
+    def _dataset_validate(self, df_name: str) -> str:
+        if self.dataset_manager is None:
+            return "\u2717 dataset manager not loaded"
+        df = self.context.get_variable(df_name)
+        if df is None:
+            return "\u2717 dataframe not found"
+        report = self.dataset_manager.validate(df)
+        return str(report)
+
+    def _dataset_split(self, df_name: str) -> str:
+        if self.dataset_manager is None:
+            return "\u2717 dataset manager not loaded"
+        df = self.context.get_variable(df_name)
+        if df is None:
+            return "\u2717 dataframe not found"
+        train, val, test, *_ = self.dataset_manager.train_val_test_split(df)
+        self.context.add_variable("train_df", train)
+        self.context.add_variable("val_df", val)
+        self.context.add_variable("test_df", test)
+        return "dataset split into train_df, val_df, test_df"
     
     def execute(self, user_input: str) -> str:
         """Main execution function - PURE NATURAL LANGUAGE WITH AUTOMATIC REAL PYTHON EXECUTION"""
         user_input = user_input.strip()
-        
+        lower_input = user_input.lower()
+
+        # Dataset manager direct commands
+        if lower_input.startswith("dataset_load "):
+            parts = user_input.split()
+            if len(parts) >= 4:
+                return self._dataset_load(parts[1], parts[3])
+            return "\u2717 invalid dataset_load command"
+        if lower_input.startswith("dataset_validate "):
+            parts = user_input.split()
+            if len(parts) >= 2:
+                return self._dataset_validate(parts[1])
+            return "\u2717 invalid dataset_validate command"
+        if lower_input.startswith("dataset_split "):
+            parts = user_input.split()
+            if len(parts) >= 2:
+                return self._dataset_split(parts[1])
+            return "\u2717 invalid dataset_split command"
+
         # Handle context-dependent references
-        if "the list" in user_input.lower() and self.context.last_collection:
+        if "the list" in lower_input and self.context.last_collection:
             user_input = user_input.replace("the list", self.context.last_collection)
         
         # Find best matching template
