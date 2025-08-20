@@ -1,11 +1,22 @@
+import pytest
+
 from parsing import ExecutionTemplate
 from execution import NaturalLanguageExecutor
+from errors import UnknownVerbError
 
 
 def test_unknown_command_message():
     executor = NaturalLanguageExecutor()
-    result = executor.execute("gibberish command")
-    assert "Sorry, I don't understand" in result
+    with pytest.raises(UnknownVerbError) as exc:
+        executor.execute("gibberish command")
+    assert "Sorry, I don't understand" in str(exc.value)
+
+
+def test_suggestion_for_typo():
+    executor = NaturalLanguageExecutor()
+    with pytest.raises(UnknownVerbError) as exc:
+        executor.execute("pritn 5")
+    assert "Did you mean" in str(exc.value)
 
 
 
