@@ -35,277 +35,115 @@ from parsing import (
 )
 
 
-class PythonCodeGenerator:  # COMPLETED: Real Python code generation for ALL templates
-    """Generates actual Python code from natural language - COMPLETE IMPLEMENTATION"""
-    
-    def __init__(self):
-        self.code_templates = {
-            # Variables
-            "variable_assignment": "{var} = {value}",
-            "list_creation": "{var} = [{items}]",
-            "dict_creation": "{var} = {{}}",
-            "empty_list": "{var} = []",
-            "empty_dict": "{var} = {{}}",
-            
-            # Functions
-            "function_definition": "def {name}({params}):\n    {body}",
-            "function_call": "{name}({args})",
-            "lambda_function": "{var} = lambda {params}: {expression}",
-            "function_return": "def {name}({params}):\n    return {value}",
-            
-            # Classes & Objects
-            "class_definition": "class {name}:\n    def __init__(self{params}):\n        {body}",
-            "class_simple": "class {name}:\n    pass",
-            "method_definition": "    def {name}(self{params}):\n        {body}",
-            "object_creation": "{obj_name} = {class_name}({args})",
-            "attribute_set": "{obj_name}.{attr} = {value}",
-            "attribute_get": "print({obj_name}.{attr})",
-            "method_call": "{obj_name}.{method}({args})",
-            
-            # Control Flow
-            "if_statement": "if {condition}:\n    {action}",
-            "while_loop": "while {condition}:\n    {action}",
-            "for_loop": "for {var} in {collection}:\n    {action}",
-            "for_range": "for {var} in range({start}, {end} + 1):\n    {action}",
-            "break_statement": "break",
-            "continue_statement": "continue",
-            
-            # Collections
-            "list_append": "{collection}.append({value})",
-            "list_remove": "{collection}.remove({value})",
-            "list_insert": "{collection}.insert({index}, {value})",
-            "list_pop": "{collection}.pop({index})",
-            "list_sort": "{collection}.sort()",
-            "list_reverse": "{collection}.reverse()",
-            "dict_set": "{dict}[{key}] = {value}",
-            "dict_get": "print({dict}[{key}])",
-            "dict_remove": "del {dict}[{key}]",
-            
-            # Arithmetic
-            "add_to_var": "{var} = {var} + {value}",
-            "subtract_from_var": "{var} = {var} - {value}",
-            "multiply_var": "{var} = {var} * {value}",
-            "divide_var": "{var} = {var} / {value}",
-            "power_var": "{var} = {var} ** {value}",
-            
-            # String Operations
-            "string_upper": "{var} = {var}.upper()",
-            "string_lower": "{var} = {var}.lower()",
-            "string_replace": "{var} = {var}.replace({old}, {new})",
-            "string_split": "{var}_split = {var}.split({separator})",
-            
-            # File I/O
-            "file_create": "open('{filename}', 'w').close()",
-            "file_write": "with open('{filename}', 'w') as f:\n    f.write({content})",
-            "file_read": "with open('{filename}', 'r') as f:\n    {var} = f.read()",
-            "file_append": "with open('{filename}', 'a') as f:\n    f.write({content})",
-            
-            # Print & Display
-            "print_value": "print({value})",
-            "print_var": "print({var})",
-            "print_collection": "for item in {collection}:\n    print(item)",
-            
-            # Error Handling
-            "try_except": "try:\n    {action}\nexcept Exception as e:\n    print(f'Error: {{e}}')",
-            
-            # Async
-            "async_function": "async def {name}({params}):\n    {body}",
-            "await_call": "await {function}({args})",
-            
-            # Advanced Data Structures
-            "dataclass_creation": "@dataclass\nclass {name}:\n    {fields}",
-            "stack_creation": "{name} = []",
-            "stack_push": "{name}.append({value})",
-            "stack_pop": "{name}.pop()",
-            "queue_creation": "from collections import deque\n{name} = deque()",
-            "queue_enqueue": "{name}.append({value})",
-            "queue_dequeue": "{name}.popleft()",
-            
-            # Loops and Iterators
-            "list_comprehension": "{var} = [{expression} for {loop_var} in {collection} if {condition}]",
-            "filter_operation": "{var} = [item for item in {collection} if {condition}]",
-            "map_operation": "{var} = [f(item) for item in {collection}]",
+class PythonCodeGenerator:
+    """Generate Python code using small grammar rules."""
 
-            # Memory and Meta
-            "dynamic_code": "{code}",
-            "variable_deletion": "del {var}",
-            # Advanced Features
-            "class_inheritance": "class {child}({parent}):\n    pass",
-            "dunder_str_method": "class {class_name}:\n    def __str__(self):\n        return {expr}",
-            "raise_exception": "if {condition}:\n    raise {exception}",
-            "match_case": "match {expr}:\n    case {pattern}:\n        {action}",
-            "import_alias": "import {module} as {alias}",
-            # === Added advanced language features ===
-            "with_statement": "with {expr} as {var}:\n    {action}",
-            "decorator_function": "@{decorator}\ndef {name}({params}):\n    {body}",
-            "generator_definition": "def {name}():\n    for {var} in {collection}:\n        yield {expr}",
-            "set_comprehension": "{var} = {{ {expr} for {item} in {collection} }}",
-            "dict_comprehension": "{var} = {{ {key}: {value} for {item} in {collection} }}",
-            "nested_comprehension": "{var} = [ {expr} for {x} in {col1} for {y} in {col2} ]",
-            "global_declaration": "global {var}",
-            "nonlocal_declaration": "nonlocal {var}",
-            "slicing": "{sub} = {arr}[{start}:{end}:{step}]",
-            "multi_assignment": "{vars} = {values}",
-            "set_union": "{result} = {set1} | {set2}",
-            "set_intersection": "{result} = {set1} & {set2}",
-            "set_difference": "{result} = {set1} - {set2}",
-            "bitwise_and": "{result} = {a} & {b}",
-            "bitwise_or": "{result} = {a} | {b}",
-            "from_import": "from {module} import {name}",
-            "try_finally": "try:\n    {action}\nfinally:\n    {cleanup}",
-
-            # Data Science & ML
-            "train_test_split": "from sklearn.model_selection import train_test_split\n{X_train}, {X_test}, {y_train}, {y_test} = train_test_split({X}, {y}, test_size={test_size}, random_state={seed})",
-            "train_val_test_split": "from sklearn.model_selection import train_test_split\n{X_temp}, {X_test}, {y_temp_train}, {y_test} = train_test_split({X}, {y}, test_size={test_size}, random_state={seed})\n{X_train}, {X_val}, {y_train}, {y_val} = train_test_split({X_temp}, {y_temp_train}, test_size={val_size}, random_state={seed2})",
-            "stratified_train_test_split": "from sklearn.model_selection import train_test_split\n{X_train}, {X_test}, {y_train}, {y_test} = train_test_split({X}, {y}, test_size={test_size}, random_state={seed}, stratify={y})",
-            "stratified_train_val_test_split": "from sklearn.model_selection import train_test_split\n{X_temp}, {X_test}, {y_temp_train}, {y_test} = train_test_split({X}, {y}, test_size={test_size}, random_state={seed}, stratify={y})\n{X_train}, {X_val}, {y_train}, {y_val} = train_test_split({X_temp}, {y_temp_train}, test_size={val_size}, random_state={seed2}, stratify={y_temp_train})",
-            "stratify_by_columns_split": "{y_strat} = {df}[{cols}].astype(str).agg('_'.join, axis=1)\nfrom sklearn.model_selection import train_test_split\n{X_train}, {X_test}, {y_train}, {y_test} = train_test_split({X}, {y}, test_size={test_size}, random_state={seed}, stratify={y_strat})",
-            "group_train_test_split": "from sklearn.model_selection import GroupShuffleSplit\n_gss = GroupShuffleSplit(n_splits=1, test_size={test_size}, random_state={seed})\n{train_idx}, {test_idx} = next(_gss.split({X}, {y}, groups={groups}))\n{X_train}, {X_test} = {X}.iloc[{train_idx}], {X}.iloc[{test_idx}]\n{y_train}, {y_test} = {y}.iloc[{train_idx}], {y}.iloc[{test_idx}]",
-            "group_k_fold": "from sklearn.model_selection import GroupKFold\n{cv} = GroupKFold(n_splits={k})",
-            "time_series_k_fold": "from sklearn.model_selection import TimeSeriesSplit\n{cv} = TimeSeriesSplit(n_splits={k})",
-            "time_based_split": "{X_train}, {X_test} = {X}.iloc[:{cut}], {X}.iloc[{cut}:]\n{y_train}, {y_test} = {y}.iloc[:{cut}], {y}.iloc[{cut}:]",
-            "k_fold": "from sklearn.model_selection import KFold\n{cv} = KFold(n_splits={k}, shuffle={shuffle}, random_state={seed})",
-            "stratified_k_fold": "from sklearn.model_selection import StratifiedKFold\n{cv} = StratifiedKFold(n_splits={k}, shuffle={shuffle}, random_state={seed})",
-            "repeated_k_fold": "from sklearn.model_selection import RepeatedKFold\n{cv} = RepeatedKFold(n_splits={k}, n_repeats={r}, random_state={seed})",
-            "repeated_stratified_k_fold": "from sklearn.model_selection import RepeatedStratifiedKFold\n{cv} = RepeatedStratifiedKFold(n_splits={k}, n_repeats={r}, random_state={seed})",
-            "k_fold_split": "from sklearn.model_selection import KFold\n{cv} = KFold(n_splits={k}, shuffle={shuffle}, random_state={seed})\nfor {train_idx}, {val_idx} in {cv}.split({X}):\n    {X_train}, {X_val} = {X}.iloc[{train_idx}], {X}.iloc[{val_idx}]",
-            "stratified_k_fold_split": "from sklearn.model_selection import StratifiedKFold\n{cv} = StratifiedKFold(n_splits={k}, shuffle={shuffle}, random_state={seed})\nfor {train_idx}, {val_idx} in {cv}.split({X}, {y}):\n    {X_train}, {X_val} = {X}.iloc[{train_idx}], {X}.iloc[{val_idx}]\n    {y_train}, {y_val} = {y}.iloc[{train_idx}], {y}.iloc[{val_idx}]",
-            "time_series_split": "from sklearn.model_selection import TimeSeriesSplit\n{cv} = TimeSeriesSplit(n_splits={k})\nfor {train_idx}, {val_idx} in {cv}.split({X}):\n    {X_train}, {X_val} = {X}.iloc[{train_idx}], {X}.iloc[{val_idx}]",
-            "group_k_fold_split": "from sklearn.model_selection import GroupKFold\n{cv} = GroupKFold(n_splits={k})\nfor {train_idx}, {val_idx} in {cv}.split({X}, {y}, groups={groups}):\n    {X_train}, {X_val} = {X}.iloc[{train_idx}], {X}.iloc[{val_idx}]\n    {y_train}, {y_val} = {y}.iloc[{train_idx}], {y}.iloc[{val_idx}]",
-            "repeated_k_fold_split": "from sklearn.model_selection import RepeatedKFold\n{cv} = RepeatedKFold(n_splits={k}, n_repeats={r}, random_state={seed})\nfor {train_idx}, {val_idx} in {cv}.split({X}):\n    {X_train}, {X_val} = {X}.iloc[{train_idx}], {X}.iloc[{val_idx}]",
-            "bootstrap_sampling": "from sklearn.utils import resample\n{samples} = [resample({X}, replace=True, n_samples=len({X}), random_state=i) for i in range({r})]",
-            "iterate_folds": "for {train_idx}, {val_idx} in {cv}.split({X}, {y}):\n    pass  # add training/eval code",
-            "iterate_folds_with_groups": "for {train_idx}, {val_idx} in {cv}.split({X}, {y}, groups={groups}):\n    pass  # add training/eval code",
-            "cross_val_score": "from sklearn.model_selection import cross_val_score\n{scores} = cross_val_score({model}, {X}, {y}, cv={cv}, scoring={scoring})",
-            "cross_val_predict": "from sklearn.model_selection import cross_val_predict\n{preds} = cross_val_predict({model}, {X}, cv={cv})",
-            "k_fold_labels_on_df": "{df}['{fold_col}'] = -1\nfor i, (tr, va) in enumerate({cv}.split({X}, {y})):\n    {df}.loc[{df}.index[va], '{fold_col}'] = i",
-            "stratified_k_fold_labels_on_df": "{df}['{fold_col}'] = -1\nfor i, (tr, va) in enumerate({cv}.split({X}, {y})):\n    {df}.loc[{df}.index[va], '{fold_col}'] = i",
-            "group_k_fold_labels_on_df": "{df}['{fold_col}'] = -1\nfor i, (tr, va) in enumerate({cv}.split({X}, {y}, groups={groups})):\n    {df}.loc[{df}.index[va], '{fold_col}'] = i",
-            "load_csv": "import pandas as pd\n{df} = pd.read_csv({filename})",
-            "show_head": "{df}.head({n})",
-            "filter_rows": "{df} = {df}[{df}['{column}'] > {value}]",
-            "create_column_bmi": "{df}['{new_col}'] = {df}['{weight}'] / {df}['{height}']**2",
-            "train_linear_regression": "from sklearn.linear_model import LinearRegression\nmodel = LinearRegression().fit({X}, {y})",
-            "compute_accuracy": "from sklearn.metrics import accuracy_score\ny_pred = model.predict({X_test})\naccuracy_score({y_test}, y_pred)",
-            "save_model": "import joblib\njoblib.dump(model, {filename})",
-            "load_model": "import joblib\nmodel = joblib.load({filename})",
-            "tokenize_text": "import spacy\nnlp = spacy.load('en_core_web_sm')\ndoc = nlp({text})\ntokens = [t.text for t in doc]",
-            "read_resize_image": "import cv2\nimg = cv2.imread({filename})\nimg = cv2.resize(img, ({width}, {height}))",
-            "log_metric_mlflow": "import mlflow\nmlflow.log_metric({name}, {value})",
-            "dropna_dataframe": "{df} = {df}.dropna()",
-            "fillna_dataframe": "{df} = {df}.fillna({value})",
-            "fillna_column": "{df}['{column}'] = {df}['{column}'].fillna({value})",
-            "drop_duplicates": "{df} = {df}.drop_duplicates()",
-            "rename_column": "{df} = {df}.rename(columns={{'{old}': '{new}'}})",
-            "dropna_column": "{df} = {df}.dropna(subset=['{column}'])",
-            "fillna_column_mean": "{df}['{column}'] = {df}['{column}'].fillna({df}['{column}'].mean())",
-            "fillna_column_median": "{df}['{column}'] = {df}['{column}'].fillna({df}['{column}'].median())",
-            "fillna_column_mode": "{df}['{column}'] = {df}['{column}'].fillna({df}['{column}'].mode()[0])",
-            "ffill_dataframe": "{df} = {df}.ffill()",
-            "bfill_dataframe": "{df} = {df}.bfill()",
-            "drop_columns": "{df} = {df}.drop(columns=[{columns}])",
-            "filter_dataframe": "{df} = {df}[{condition}]",
-            "replace_value": "{df}['{column}'] = {df}['{column}'].replace({old}, {new})",
-            "replace_values": "{df}['{column}'] = {df}['{column}'].replace({mapping})",
-            "rename_columns": "{df} = {df}.rename(columns={mapping})",
-            "to_numeric": "{df}['{column}'] = pd.to_numeric({df}['{column}'], errors='coerce')",
-            "to_datetime": "{df}['{column}'] = pd.to_datetime({df}['{column}'])",
-            "extract_date_part": "{df}['{new_column}'] = {df}['{column}'].dt.{part}",
-            "standardize_column": "from sklearn.preprocessing import StandardScaler\n{df}['{column}'] = StandardScaler().fit_transform({df}[[{column}]])",
-            "minmax_scale_column": "from sklearn.preprocessing import MinMaxScaler\n{df}['{column}'] = MinMaxScaler().fit_transform({df}[[{column}]])",
-            "log_transform_column": "import numpy as np\n{df}['{column}'] = np.log({df}['{column}'])",
-            "exp_transform_column": "import numpy as np\n{df}['{column}'] = np.exp({df}['{column}'])",
-            "one_hot_encode": "{df} = pd.get_dummies({df}, columns=[{column}])",
-            "ordinal_encode": "from sklearn.preprocessing import OrdinalEncoder\nencoder = OrdinalEncoder(categories=[[{items}]])\n{df}['{column}'] = encoder.fit_transform({df}[[{column}]])",
-            "frequency_encode": "{df}['{column}'] = {df}['{column}'].map({df}['{column}'].value_counts())",
-            "quantile_bin": "{df}['{new_column}'] = pd.qcut({df}['{column}'], {q})",
-            "fixed_width_bin": "{df}['{new_column}'] = pd.cut({df}['{column}'], bins={bins})",
-            "custom_bin": "{df}['{new_column}'] = pd.cut({df}['{column}'], bins=[{items}], labels=[{columns}])",
-            "remove_outliers_iqr": "Q1 = {df}['{column}'].quantile(0.25)\nQ3 = {df}['{column}'].quantile(0.75)\nIQR = Q3 - Q1\n{df} = {df}[({df}['{column}'] >= Q1 - 1.5 * IQR) & ({df}['{column}'] <= Q3 + 1.5 * IQR)]",
-            "remove_outliers_zscore": "from scipy import stats\n{df} = {df}[abs(stats.zscore({df}['{column}'])) < {threshold}]",
-            "cap_outliers": "{df}['{column}'] = {df}['{column}'].clip(lower={lower}, upper={upper})",
-            "text_lowercase": "{df}['{column}'] = {df}['{column}'].str.lower()",
-            "remove_punctuation": "{df}['{column}'] = {df}['{column}'].str.replace(r'[^\\w\\s]', '', regex=True)",
-            "remove_stopwords": "from nltk.corpus import stopwords\nstop = set(stopwords.words('english'))\n{df}['{column}'] = {df}['{column}'].apply(lambda x: ' '.join([word for word in x.split() if word not in stop]))",
-            "stem_text": "from nltk.stem import PorterStemmer\nstemmer = PorterStemmer()\n{df}['{column}'] = {df}['{column}'].apply(lambda x: ' '.join([stemmer.stem(word) for word in x.split()]))",
-            "lemmatize_text": "from nltk.stem import WordNetLemmatizer\nlemmatizer = WordNetLemmatizer()\n{df}['{column}'] = {df}['{column}'].apply(lambda x: ' '.join([lemmatizer.lemmatize(word) for word in x.split()]))",
-            "tokenize_text_column": "{df}['{column}'] = {df}['{column}'].str.split()",
-            "sort_by_date": "{df} = {df}.sort_values(by='{column}')",
-            "create_lag_feature": "{df}['{new_column}'] = {df}['{column}'].shift({lag})",
-            "create_lead_feature": "{df}['{new_column}'] = {df}['{column}'].shift(-{lead})",
-            "resample_time_series": "{df} = {df}.resample('{freq}').{agg}()",
-            "groupby_agg": "{df}_grouped = {df}.groupby([{columns}])['{agg_col}'].{agg_func}().reset_index()",
-            "pivot_data": "{df}_pivot = {df}.pivot(index='{index}', columns='{columns}', values='{values}')",
-            "melt_data": "{df}_melt = {df}.melt(id_vars=[{columns}], value_vars=[{items}])",
-            "rolling_calculation": "{df}['{new_column}'] = {df}['{column}'].rolling({window}).{agg_func}()",
-            "expanding_calculation": "{df}['{new_column}'] = {df}['{column}'].expanding().{agg_func}()",
-            "column_arithmetic": "{df}['{new_column}'] = {df}['{col1}'] {op} {df}['{col2}']",
-            "apply_function": "import numpy as np\n{df}['{new_column}'] = np.{func}({df}['{column}'])",
-            "concat_columns": "{df}['{new_column}'] = {df}[[{columns}]].astype(str).agg(' '.join, axis=1)",
-            "merge_dataframes": "{result} = {left}.merge({right}, on='{on}', how='{how}')",
-            "concat_dataframes": "{result} = pd.concat([{items}], axis={axis})",
-            "target_and_features": "{y} = {df}['{target}']\n{X} = {df}.drop(columns=['{target}'])",
-            "classification_metrics": "from sklearn.metrics import {imports}\n{y_pred_line}{y_prob_line}{metric_lines}",
-            "confusion_matrix_plot": "from sklearn.metrics import confusion_matrix\nimport matplotlib.pyplot as plt\n{y_pred_line}cm = confusion_matrix({y_test}, y_pred)\nplt.imshow(cm, cmap='Blues')\nplt.xlabel('Predicted')\nplt.ylabel('Actual')\nplt.colorbar()\nplt.show()",
-            "classification_report": "from sklearn.metrics import classification_report\n{y_pred_line}report = classification_report({y_test}, y_pred)\nprint(report)",
-            "regression_metrics": "from sklearn.metrics import {imports}\n{y_pred_line}{metric_lines}",
-            "histogram_plot": "import matplotlib.pyplot as plt\n{df}['{column}'].hist()\nplt.show()",
-            "box_plot": "import matplotlib.pyplot as plt\n{df}['{column}'].plot(kind='box')\nplt.show()",
-            "violin_plot": "import matplotlib.pyplot as plt\nplt.violinplot({df}['{column}'])\nplt.show()",
-            "scatter_plot": "import matplotlib.pyplot as plt\nplt.scatter({df}['{x}'], {df}['{y}'])\nplt.xlabel('{x}')\nplt.ylabel('{y}')\nplt.show()",
-            "correlation_heatmap": "import matplotlib.pyplot as plt\ncorr = {df}.corr()\nplt.imshow(corr, cmap='coolwarm', interpolation='none')\nplt.colorbar()\nplt.show()",
-            "per_class_histogram": "import matplotlib.pyplot as plt\nfor label in {df}['{class_col}'].unique():\n    subset = {df}[{df}['{class_col}'] == label]['{column}']\n    plt.hist(subset, alpha=0.5, label=str(label))\nplt.legend()\nplt.show()",
-            "tfidf_vectorize": "from sklearn.feature_extraction.text import TfidfVectorizer\nvectorizer = TfidfVectorizer({options})\n{X_text} = vectorizer.fit_transform(df['{column}'])",
-            "count_vectorize": "from sklearn.feature_extraction.text import CountVectorizer\nvectorizer = CountVectorizer({options})\n{X_text} = vectorizer.fit_transform(df['{column}'])",
-            "pca_pipeline": "from sklearn.decomposition import PCA\nfrom sklearn.pipeline import Pipeline\npca_pipe = Pipeline([('pca', PCA(n_components={n_components}))])\n{X_pca} = pca_pipe.fit_transform({X})",
-            "polynomial_features": "from sklearn.preprocessing import PolynomialFeatures\npoly = PolynomialFeatures(degree={degree}, interaction_only={interaction_only})\n{X_poly} = poly.fit_transform({X})",
-            "grid_search_cv": "from sklearn.model_selection import GridSearchCV, StratifiedKFold\ncv = StratifiedKFold(n_splits={k})\nsearch = GridSearchCV({estimator}, {param_grid}, cv=cv, scoring='{scoring}')\nsearch.fit({X}, {y})\n{best_model} = search.best_estimator_",
-            "random_search_cv": "from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold\ncv = StratifiedKFold(n_splits={k})\nsearch = RandomizedSearchCV({estimator}, {param_grid}, cv=cv, scoring='{scoring}', n_iter={n_iter}, random_state={seed})\nsearch.fit({X}, {y})\n{best_model} = search.best_estimator_",
+    def __init__(self) -> None:
+        self._generators = {
+            "variable_assignment": self._assign,
+            "print_var": self._print_var,
+            "print_value": self._print_value,
+            "for_loop": self._for_loop,
+            "for_range": self._for_range,
+            "while_loop": self._while_loop,
+            "if_statement": self._if_statement,
+            "class_definition": self._class_definition,
+            "class_simple": self._class_simple,
+            "import": self._import,
+            "from_import": self._from_import,
         }
-    
-    def generate_code(self, template_key: str, **kwargs) -> str:
-        """Generate Python code from template"""
-        if template_key in self.code_templates:
-            template = self.code_templates[template_key]
-            try:
-                return template.format(**kwargs)
-            except KeyError as e:
-                return f"# Error: Missing parameter {e} for template {template_key}"
-        return f"# Error: Template {template_key} not found"
-    
-    def format_value(self, value: str) -> str:
-        """Format value for Python code"""
-        # If it's already quoted, return as is
-        if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-            return value
-        
-        # If it's a number, return as is
-        if value.isdigit() or (value.replace('.', '').isdigit() and value.count('.') <= 1):
-            return value
-            
-        # If it's a boolean
-        if value.lower() in ['true', 'false']:
-            return value.title()
-            
-        # If it contains spaces or special chars, quote it
-        if ' ' in value or ',' in value:
-            return f'"{value}"'
-            
-        # Otherwise assume it's a variable name
-        return value
-    
-    def format_collection(self, items: str) -> str:
-        """Format collection items for Python code"""
-        if not items:
-            return ""
-        
-        if isinstance(items, list):
-            return ', '.join([self.format_value(str(item)) for item in items])
-        
-        # Split by comma and format each item
-        item_list = [self.format_value(item.strip()) for item in items.split(',') if item.strip()]
-        return ', '.join(item_list)
 
+    def generate_code(self, template_key: str, **kwargs) -> str:
+        handler = self._generators.get(template_key)
+        if handler is None:
+            return f"# Error: Template {template_key} not found"
+        try:
+            code = handler(**kwargs)
+            ast.parse(code)
+            return code
+        except Exception as exc:  # pragma: no cover - graceful error
+            return f"# Error: {exc}"
+
+    # --- grammar helpers -------------------------------------------------
+    def _parse_block(self, body: Union[str, List[str]]) -> List[ast.stmt]:
+        if isinstance(body, list):
+            body = "\n".join(body)
+        if not body:
+            return [ast.Pass()]
+        return ast.parse(body).body
+
+    def _assign(self, var: str, value: str) -> str:
+        node = ast.Assign(targets=[ast.Name(id=var, ctx=ast.Store())],
+                          value=ast.parse(value, mode="eval").body)
+        ast.fix_missing_locations(node)
+        return ast.unparse(node)
+
+    def _print_var(self, var: str) -> str:
+        node = ast.Expr(value=ast.Call(func=ast.Name(id="print", ctx=ast.Load()),
+                                       args=[ast.Name(id=var, ctx=ast.Load())],
+                                       keywords=[]))
+        ast.fix_missing_locations(node)
+        return ast.unparse(node)
+
+    def _print_value(self, value: str) -> str:
+        node = ast.Expr(value=ast.Call(func=ast.Name(id="print", ctx=ast.Load()),
+                                       args=[ast.parse(value, mode="eval").body],
+                                       keywords=[]))
+        ast.fix_missing_locations(node)
+        return ast.unparse(node)
+
+    def _for_loop(self, var: str, collection: str, action: str) -> str:
+        node = ast.For(target=ast.Name(id=var, ctx=ast.Store()),
+                       iter=ast.parse(collection, mode="eval").body,
+                       body=self._parse_block(action),
+                       orelse=[])
+        ast.fix_missing_locations(node)
+        return ast.unparse(node)
+
+    def _for_range(self, var: str, start: str, end: str, action: str) -> str:
+        iter_expr = f"range({start}, {end} + 1)"
+        return self._for_loop(var=var, collection=iter_expr, action=action)
+
+    def _while_loop(self, condition: str, action: str) -> str:
+        node = ast.While(test=ast.parse(condition, mode="eval").body,
+                         body=self._parse_block(action),
+                         orelse=[])
+        ast.fix_missing_locations(node)
+        return ast.unparse(node)
+
+    def _if_statement(self, condition: str, action: str) -> str:
+        node = ast.If(test=ast.parse(condition, mode="eval").body,
+                      body=self._parse_block(action),
+                      orelse=[])
+        ast.fix_missing_locations(node)
+        return ast.unparse(node)
+
+    def _class_definition(self, name: str, body: Union[str, List[str]] = "pass", params: str = "") -> str:
+        body_nodes = self._parse_block(body)
+        node = ast.ClassDef(name=name, bases=[], keywords=[], body=body_nodes, decorator_list=[])
+        ast.fix_missing_locations(node)
+        return ast.unparse(node)
+
+    def _class_simple(self, name: str) -> str:
+        return self._class_definition(name=name, body="pass")
+
+    def _import(self, module: str, alias: Optional[str] = None) -> str:
+        node = ast.Import(names=[ast.alias(name=module, asname=alias)])
+        ast.fix_missing_locations(node)
+        return ast.unparse(node)
+
+    def _from_import(self, module: str, name: str, alias: Optional[str] = None) -> str:
+        node = ast.ImportFrom(module=module, names=[ast.alias(name=name, asname=alias)], level=0)
+        ast.fix_missing_locations(node)
+        return ast.unparse(node)
+
+    def format_value(self, value: str) -> str:
+        return value
+
+    def format_collection(self, items: Union[str, List[str]]) -> str:
+        if isinstance(items, list):
+            return ", ".join(items)
+        return items or ""
 def _run_code(code, g_vars, l_vars, builtins, queue):
     import sys
     import pickle
