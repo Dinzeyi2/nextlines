@@ -6,7 +6,7 @@ class DummyClient:
     def __init__(self, responses):
         self.responses = list(responses)
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str, **_: object) -> str:
         return self.responses.pop(0)
 
 
