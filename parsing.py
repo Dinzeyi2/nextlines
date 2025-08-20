@@ -3,6 +3,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Tuple
 
+try:  # pragma: no cover - optional dependency
+    import spacy  # type: ignore
+except Exception:  # pragma: no cover
+    spacy = None
+
 
 class ParameterExtractionError(Exception):
     """Raised when a parameter cannot be parsed"""
@@ -53,29 +58,83 @@ class ParameterExtractor:
             "identifier": "id",
         }
 
+        self.value_synonyms = {
+            "couple": 2,
+            "pair": 2,
+            "dozen": 12,
+        }
+        self.unit_multipliers = {
+            "dozen": 12,
+            "score": 20,
+        }
+
+        if spacy:
+            try:  # pragma: no cover - runtime dependency
+                self.nlp = spacy.load("en_core_web_sm")
+            except Exception:  # Model not installed or other error
+                try:
+                    self.nlp = spacy.blank("en")
+                    self.nlp.add_pipe("lemmatizer", config={"mode": "rule"})
+                    self.nlp.initialize()
+                except Exception:
+                    self.nlp = None
+        else:
+            self.nlp = None
+
     def _tokenize(self, text: str) -> List[str]:
         try:
             return shlex.split(text)
         except Exception:
             return text.split()
 
+    def _resolve_pronoun(self, text: str) -> str | None:
+        if not self.nlp:
+            return None
+        doc = self.nlp(text)
+        if len(doc) != 1:
+            return None
+        token = doc[0]
+        if token.pos_ != "PRON":
+            return None
+        pronoun = token.lemma_.lower()
+        if pronoun in {"it", "this", "that"}:
+            return self.context.last_assigned_variable
+        if pronoun in {"they", "them", "those", "these"}:
+            return self.context.last_collection
+        return None
+
     def extract_identifier(self, text: str) -> str:
         """Convert natural language to Python identifier"""
+        pronoun = self._resolve_pronoun(text)
+        if pronoun:
+            return pronoun
+
         resolved = self.context.resolve_reference(text)
         if resolved and resolved != text:
             return resolved
 
-        tokens = [t.lower() for t in self._tokenize(text)]
-        if not tokens:
-            raise ParameterExtractionError(f"Cannot resolve identifier from '{text}'")
-
-        normalized: List[str] = []
-        for tok in tokens:
-            tok = ''.join(ch for ch in tok if ch.isalnum() or ch == '_')
-            tok = self.identifier_synonyms.get(tok, tok)
-            normalized.append(tok)
-
-        identifier = '_'.join(normalized)
+        if self.nlp:
+            doc = self.nlp(text)
+            tokens = [t for t in doc if not t.is_space]
+            if not tokens:
+                raise ParameterExtractionError(f"Cannot resolve identifier from '{text}'")
+            normalized: List[str] = []
+            for tok in tokens:
+                lemma = tok.lemma_.lower()
+                lemma = ''.join(ch for ch in lemma if ch.isalnum() or ch == '_')
+                lemma = self.identifier_synonyms.get(lemma, lemma)
+                normalized.append(lemma)
+            identifier = '_'.join(normalized)
+        else:
+            tokens = [t.lower() for t in self._tokenize(text)]
+            if not tokens:
+                raise ParameterExtractionError(f"Cannot resolve identifier from '{text}'")
+            normalized = []
+            for tok in tokens:
+                tok = ''.join(ch for ch in tok if ch.isalnum() or ch == '_')
+                tok = self.identifier_synonyms.get(tok, tok)
+                normalized.append(tok)
+            identifier = '_'.join(normalized)
         if not identifier:
             raise ParameterExtractionError(f"Cannot resolve identifier from '{text}'")
         return identifier
@@ -83,9 +142,29 @@ class ParameterExtractor:
     def extract_value(self, text: str) -> Any:
         """Extract and convert values to appropriate Python types"""
         text = text.strip()
+        pronoun = self._resolve_pronoun(text)
+        if pronoun:
+            if pronoun in self.context.variables:
+                return self.context.variables[pronoun]
+            return pronoun
+
         tokens = self._tokenize(text)
         if not tokens:
             raise ParameterExtractionError(f"Cannot resolve value from '{text}'")
+
+        if len(tokens) >= 2:
+            first, second = tokens[0], tokens[1]
+            first_low = first.lower()
+            second_low = second.lower()
+            num = None
+            if first_low in ("a", "an"):
+                num = 1
+            elif first_low.isdigit():
+                num = int(first_low)
+            elif first_low in self.number_words:
+                num = self.number_words[first_low]
+            if num is not None and second_low in self.unit_multipliers:
+                return num * self.unit_multipliers[second_low]
 
         if len(tokens) == 1:
             token = tokens[0]
@@ -97,6 +176,10 @@ class ParameterExtractor:
                 return self.number_words[lower]
             if lower in self.ordinal_words:
                 return self.ordinal_words[lower]
+            if lower in self.value_synonyms:
+                return self.value_synonyms[lower]
+            if lower in self.unit_multipliers:
+                return self.unit_multipliers[lower]
             try:
                 return float(lower)
             except ValueError:
