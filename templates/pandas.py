@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Any
 
+from errors import MissingParameterError, UnsupportedLibraryError
+
 
 def _parse_version(v: str) -> tuple[int, ...]:
     parts = []
@@ -32,9 +34,11 @@ class Template:
     code: str
 
     def generate(self, **kwargs: Any) -> str:
+        if not HAS_PANDAS:
+            raise UnsupportedLibraryError("pandas")
         missing = set(self.parameters) - set(kwargs)
         if missing:
-            raise ValueError(f"Missing parameters: {missing}")
+            raise MissingParameterError(sorted(missing))
         return self.code.format(**kwargs)
 
 

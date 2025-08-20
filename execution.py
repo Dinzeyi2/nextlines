@@ -8,6 +8,12 @@ import operator
 import sys
 from io import StringIO
 import ast
+
+from errors import (
+    MissingParameterError,
+    UnknownVerbError,
+    UnsupportedLibraryError,
+)
 import multiprocessing
 import resource
 import logging
@@ -5276,11 +5282,13 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
         user_input = self.context.resolve_pronouns(user_input)
         lower_input = user_input.lower()
 
+        if not self.templates:
+            self.templates = self._load_templates()
+
         # Handle context-dependent references
         if "the list" in lower_input and self.context.last_collection:
             user_input = user_input.replace("the list", self.context.last_collection)
-        
-        # Find best matching template
+
         best_score = 0
         best_template = None
         patterns = [t.pattern for t in self.templates]
@@ -5298,12 +5306,20 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             llm_result = self._llm_fallback(user_input)
             if llm_result:
                 return llm_result
-            logger.info("Unsupported phrase: %s", user_input)
-            suggestion = difflib.get_close_matches(user_input, patterns, n=1)
-            message = f"✗ Sorry, I don't understand: '{user_input}'"
-            if suggestion:
-                message += f". Did you mean: '{suggestion[0]}'?"
-            return message
+            suggestion = difflib.get_close_matches(user_input, patterns, n=1, cutoff=0.5)
+            raise UnknownVerbError(user_input, suggestion[0] if suggestion else None)
+
+        user_verb = lower_input.split()[0] if lower_input else ""
+        template_verb = best_template.pattern.split()[0].lower()
+        if user_verb != template_verb:
+            ml_result = self._ml_fallback(user_input)
+            if ml_result:
+                return ml_result
+            llm_result = self._llm_fallback(user_input)
+            if llm_result:
+                return llm_result
+            suggestion = difflib.get_close_matches(user_input, patterns, n=1, cutoff=0.5)
+            raise UnknownVerbError(user_input, suggestion[0] if suggestion else None)
 
         # Extract parameters
         parameters = self._extract_parameters(user_input, best_template)
@@ -5316,12 +5332,8 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             llm_result = self._llm_fallback(user_input)
             if llm_result:
                 return llm_result
-            logger.info("Unsupported phrase: %s", user_input)
-            suggestion = difflib.get_close_matches(user_input, patterns, n=1)
-            message = f"✗ Sorry, I don't understand: '{user_input}'"
-            if suggestion:
-                message += f". Did you mean: '{suggestion[0]}'?"
-            return message
+            suggestion = difflib.get_close_matches(user_input, patterns, n=1, cutoff=0.5)
+            raise MissingParameterError(missing_params, suggestion[0] if suggestion else None)
         
         # AUTOMATIC REAL PYTHON CODE GENERATION AND EXECUTION
         if self.execution_mode in ("real", "hybrid"):
@@ -5360,12 +5372,8 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             llm_result = self._llm_fallback(user_input)
             if llm_result:
                 return llm_result
-            logger.info("Unsupported phrase: %s", user_input)
-            suggestion = difflib.get_close_matches(user_input, patterns, n=1)
-            message = f"✗ Sorry, I don't understand: '{user_input}'"
-            if suggestion:
-                message += f". Did you mean: '{suggestion[0]}'?"
-            return message
+            suggestion = difflib.get_close_matches(user_input, patterns, n=1, cutoff=0.5)
+            raise UnknownVerbError(user_input, suggestion[0] if suggestion else None)
         except Exception as e:
             return f"✗ Error executing command: {str(e)}"
     
