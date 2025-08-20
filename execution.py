@@ -457,6 +457,8 @@ class ExecutionContext:
         self.imports = {}
         self.last_assigned_variable = None
         self.last_collection = None
+        self.recent_commands: List[Tuple[str, Any]] = []  # Track recent commands and results
+        self.last_result: Any = None
         self.output_buffer = StringIO()
         self.current_class = None  # NEW: Track current class being defined
         self.current_function = None  # NEW: Track current function being defined
@@ -492,12 +494,38 @@ class ExecutionContext:
         pronouns = {
             "it": self.last_assigned_variable,
             "that": self.last_assigned_variable,
+            "this": self.last_assigned_variable,
             "the result": self.last_assigned_variable,
+            "them": self.last_collection,
+            "they": self.last_collection,
+            "those": self.last_collection,
             "the list": self.last_collection,
             "the array": self.last_collection,
-            "the collection": self.last_collection
+            "the collection": self.last_collection,
         }
         return pronouns.get(name.lower(), name)
+
+    def resolve_pronouns(self, text: str) -> str:
+        """Replace pronouns in arbitrary text using context."""
+        replacements = {
+            "it": self.last_assigned_variable,
+            "that": self.last_assigned_variable,
+            "this": self.last_assigned_variable,
+            "them": self.last_collection,
+            "they": self.last_collection,
+            "those": self.last_collection,
+        }
+        for pronoun, value in replacements.items():
+            if value:
+                text = re.sub(rf"\b{pronoun}\b", value, text, flags=re.IGNORECASE)
+        return text
+
+    def record_command(self, command: str, result: Any):
+        """Store recent command/result pairs for context-aware features."""
+        self.recent_commands.append((command, result))
+        self.last_result = result
+        if len(self.recent_commands) > 20:
+            self.recent_commands.pop(0)
     
     def print_output(self, *args, **kwargs):
         """Custom print function that captures output"""
@@ -520,6 +548,8 @@ class ExecutionContext:
             "imports": copy.deepcopy(self.imports),
             "last_assigned_variable": self.last_assigned_variable,
             "last_collection": self.last_collection,
+            "recent_commands": copy.deepcopy(self.recent_commands),
+            "last_result": copy.deepcopy(self.last_result),
             "current_class": self.current_class,
             "current_function": self.current_function,
         }
@@ -538,6 +568,8 @@ class ExecutionContext:
         self.imports = state["imports"]
         self.last_assigned_variable = state["last_assigned_variable"]
         self.last_collection = state["last_collection"]
+        self.recent_commands = state.get("recent_commands", [])
+        self.last_result = state.get("last_result")
         self.current_class = state["current_class"]
         self.current_function = state["current_function"]
 
@@ -603,6 +635,7 @@ class NaturalLanguageExecutor:
         self.execution_mode = "hybrid"  # default: try real execution then fall back to simulation
         self.ml_parser: MLCodeGenerator | None = None
         self.llm_parser: LLMParser | None = None
+        self.conversation_history: List[Tuple[str, str]] = []  # NEW: conversation context
 
         # Load ML parser if a trained model exists
         model_path = Path("models/ml_parser.json")
@@ -5402,6 +5435,7 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
     def execute(self, user_input: str) -> str:
         """Main execution function - PURE NATURAL LANGUAGE WITH AUTOMATIC REAL PYTHON EXECUTION"""
         user_input = user_input.strip()
+        user_input = self.context.resolve_pronouns(user_input)
         lower_input = user_input.lower()
 
         # Handle context-dependent references
