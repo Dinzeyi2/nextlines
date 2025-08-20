@@ -53,10 +53,14 @@ def execute(req: CommandRequest):
     session = _get_session(req.session_id)
     executor = NaturalLanguageExecutor()
     executor.context = session.context
+    executor.conversation_history = session.conversation_history
+    session.add_message("user", cmd)
 
     try:
         result = executor.execute(cmd)
         success = not result.startswith("✗")
+        session.add_message("assistant", result)
+        session.context.record_command(cmd, result)
         duration = time.time() - start
         logger.info(
             "cmd=%s duration=%.3fs success=%s",
@@ -73,6 +77,8 @@ def execute(req: CommandRequest):
     except ValueError as exc:
         duration = time.time() - start
         msg = _sanitize_error(str(exc))
+        session.add_message("assistant", msg)
+        session.context.record_command(cmd, msg)
         logger.error("cmd=%s duration=%.3fs error=%s", cmd, duration, msg)
         return CommandResponse(
             session_id=session.id,
@@ -83,6 +89,8 @@ def execute(req: CommandRequest):
     except Exception as exc:
         duration = time.time() - start
         msg = _sanitize_error(str(exc))
+        session.add_message("assistant", msg)
+        session.context.record_command(cmd, msg)
         logger.error("cmd=%s duration=%.3fs error=%s", cmd, duration, msg)
         raise HTTPException(status_code=500, detail=f"Execution failed: {msg}")
 
