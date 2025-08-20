@@ -66,6 +66,18 @@ print(result)
 The example above generates and executes Python code even when no
 rule-based template matches the query.
 
+## Training
+
+The optional ML parser can be retrained on a JSON dataset of command/code
+pairs. Edit `datasets/commands.json` with your own examples and run:
+
+```bash
+python scripts/train_parser.py --dataset datasets/commands.json --output models/ml_parser.json
+```
+
+The script trains a sentence-transformer model, saves it to the specified
+path and reports accuracy on the provided dataset.
+
 ## Prompt design
 
 The parser expects concise, imperative instructions:
