@@ -35,11 +35,43 @@ class LLMClient:
             raise ImportError("openai package is required for LLMClient")
         self._client = OpenAI()
 
-    def complete(self, prompt: str) -> str:
-        """Return completion text for the given prompt."""
+    def complete(
+        self,
+        prompt: str,
+        *,
+        history: list[dict[str, str]] | None = None,
+        session: dict[str, str] | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+    ) -> str:
+        """Return completion text for the given prompt.
+
+        Parameters
+        ----------
+        prompt:
+            The latest user prompt.
+        history:
+            Optional list of prior messages represented as ``{"role", "content"}``
+            dicts which will be sent before the current prompt.
+        session:
+            Optional dictionary of session variables to prepend as a system
+            message so the model can reference state across requests.
+        model:
+            Override the model name for this request.
+        temperature:
+            Override the sampling temperature for this request.
+        """
+        messages: list[dict[str, str]] = []
+        if session:
+            session_text = "\n".join(f"{k}: {v}" for k, v in session.items())
+            messages.append({"role": "system", "content": f"Session variables:\n{session_text}"})
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": prompt})
+
         response = self._client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=self.temperature,
+            model=model or self.model,
+            messages=messages,
+            temperature=self.temperature if temperature is None else temperature,
         )
         return response.choices[0].message["content"].strip()

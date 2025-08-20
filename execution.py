@@ -970,7 +970,11 @@ class NaturalLanguageExecutor:
         if not self.llm_parser:
             return None
         try:
-            code = self.llm_parser.parse(text)
+            code = self.llm_parser.parse(
+                text,
+                conversation_history=self.conversation_history,
+                session_variables=self.context.variables,
+            )
             return self._execute_with_real_python(code)
         except Exception:
             return None

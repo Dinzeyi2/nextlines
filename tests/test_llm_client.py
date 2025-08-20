@@ -28,5 +28,29 @@ def test_llm_client_configuration(monkeypatch):
     client = LLMClient(model="test-model", temperature=0.5)
     text = client.complete("hi")
     assert text == "ok"
-    assert client._client.chat.completions.last_args[0] == "test-model"
-    assert client._client.chat.completions.last_args[2] == 0.5
+    model, messages, temp = client._client.chat.completions.last_args
+    assert model == "test-model"
+    assert temp == 0.5
+    assert messages[-1] == {"role": "user", "content": "hi"}
+
+
+def test_llm_client_overrides(monkeypatch):
+    monkeypatch.setattr(llm_client, "OpenAI", DummyOpenAI)
+    client = LLMClient()
+    hist = [{"role": "assistant", "content": "prev"}]
+    sess = {"x": "1"}
+    text = client.complete(
+        "hi",
+        history=hist,
+        session=sess,
+        model="big-model",
+        temperature=0.9,
+    )
+    assert text == "ok"
+    model, messages, temp = client._client.chat.completions.last_args
+    assert model == "big-model"
+    assert temp == 0.9
+    assert messages[0]["role"] == "system"
+    assert "x: 1" in messages[0]["content"]
+    assert messages[1] == hist[0]
+    assert messages[-1] == {"role": "user", "content": "hi"}
