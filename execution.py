@@ -16,6 +16,10 @@ import uuid
 import copy
 
 from llm_parser import LLMParser
+try:  # pragma: no cover - optional dependency
+    from llm_client import LLMClient
+except Exception:  # pragma: no cover - handled gracefully if missing
+    LLMClient = None
 
 try:
     from ml_parser import MLCodeGenerator
@@ -598,6 +602,7 @@ class NaturalLanguageExecutor:
         self.python_executor = PythonExecutor()  # NEW: Real Python execution
         self.execution_mode = "hybrid"  # default: try real execution then fall back to simulation
         self.ml_parser: MLCodeGenerator | None = None
+        self.llm_parser: LLMParser | None = None
 
         # Load ML parser if a trained model exists
         model_path = Path("models/ml_parser.json")
@@ -606,6 +611,13 @@ class NaturalLanguageExecutor:
                 self.ml_parser = MLCodeGenerator.load(model_path)
             except Exception:
                 self.ml_parser = None
+
+        # Initialize LLM parser if possible
+        if LLMClient is not None:
+            try:  # pragma: no cover - optional dependency
+                self.llm_parser = LLMParser(LLMClient())
+            except Exception:
+                self.llm_parser = None
         
     def set_execution_mode(self, mode: str):
         """Set execution mode.
@@ -1072,6 +1084,16 @@ class NaturalLanguageExecutor:
         if distance >= 0.5:
             return None
         try:
+            return self._execute_with_real_python(code)
+        except Exception:
+            return None
+
+    def _llm_fallback(self, text: str) -> Optional[str]:
+        """Use the LLM parser to handle completely unknown commands."""
+        if not self.llm_parser:
+            return None
+        try:
+            code = self.llm_parser.parse(text)
             return self._execute_with_real_python(code)
         except Exception:
             return None
@@ -5401,6 +5423,9 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             ml_result = self._ml_fallback(user_input)
             if ml_result:
                 return ml_result
+            llm_result = self._llm_fallback(user_input)
+            if llm_result:
+                return llm_result
             logger.info("Unsupported phrase: %s", user_input)
             suggestion = difflib.get_close_matches(user_input, patterns, n=1)
             message = f"✗ Sorry, I don't understand: '{user_input}'"
@@ -5416,6 +5441,9 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             ml_result = self._ml_fallback(user_input)
             if ml_result:
                 return ml_result
+            llm_result = self._llm_fallback(user_input)
+            if llm_result:
+                return llm_result
             logger.info("Unsupported phrase: %s", user_input)
             suggestion = difflib.get_close_matches(user_input, patterns, n=1)
             message = f"✗ Sorry, I don't understand: '{user_input}'"
@@ -5457,6 +5485,9 @@ print(f"Memory stats: {object_count} objects tracked, {len(stats)} generations")
             ml_result = self._ml_fallback(user_input)
             if ml_result:
                 return ml_result
+            llm_result = self._llm_fallback(user_input)
+            if llm_result:
+                return llm_result
             logger.info("Unsupported phrase: %s", user_input)
             suggestion = difflib.get_close_matches(user_input, patterns, n=1)
             message = f"✗ Sorry, I don't understand: '{user_input}'"
