@@ -43,6 +43,15 @@ class MLCodeGenerator:
         denom = math.sqrt(sum(a * a for a in v1)) * math.sqrt(sum(b * b for b in v2))
         return num / denom if denom else 0.0
 
+    def nearest_neighbors(self, text: str, k: int = 5) -> List[Tuple[str, float]]:
+        vec = list(self.model.encode([text])[0])
+        scores: List[Tuple[str, float]] = []
+        for emb, code in zip(self.embeddings, self.codes):
+            score = self._cosine(vec, emb)
+            scores.append((code, 1.0 - score))
+        scores.sort(key=lambda x: x[1])
+        return scores[:k]
+
     def predict_with_score(self, text: str) -> Tuple[str, float]:
         vec = list(self.model.encode([text])[0])
         best_score = -1.0

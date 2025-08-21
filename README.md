@@ -72,11 +72,19 @@ The optional ML parser can be retrained on a JSON dataset of command/code
 pairs. Edit `datasets/commands.json` with your own examples and run:
 
 ```bash
-python scripts/train_parser.py --dataset datasets/commands.json --output models/ml_parser.json
+python -m scripts.train_parser \
+    --dataset datasets/commands.json \
+    --output models/ml_parser.json \
+    --test-split 0.2 \
+    --top-k 5 \
+    --neighbors neighbors.json
 ```
 
-The script trains a sentence-transformer model, saves it to the specified
-path and reports accuracy on the provided dataset.
+The command above shuffles the dataset, trains a sentence‑transformer model on
+the training portion, evaluates it on the held‑out split and reports accuracy as
+well as top‑k accuracy. When `--neighbors` is supplied, the script also stores
+the top‑k nearest matches for each test query in the given JSON file to aid
+debugging.
 
 ## Prompt design
 
