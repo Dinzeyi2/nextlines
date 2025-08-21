@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 
+import warnings
+
 from ml_parser import DEFAULT_MODEL_NAME, MLCodeGenerator, load_corpus
 
 
@@ -31,6 +33,11 @@ def main() -> None:
 
     dataset = load_corpus(args.dataset)
     model = MLCodeGenerator.train(dataset, model_name=args.model_name)
+    if model.model_name == "tfidf":
+        warnings.warn(
+            "SentenceTransformer unavailable; falling back to TfidfVectorizer",
+            RuntimeWarning,
+        )
     model.save(args.output)
 
     # Evaluate training accuracy

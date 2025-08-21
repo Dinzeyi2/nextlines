@@ -12,8 +12,9 @@ The project relies on a few Python packages:
 
 * **Mandatory**: [`pandas`](https://pandas.pydata.org/) and [`scikit-learn`](https://scikit-learn.org/)
   for dataframe operations and ML utilities.
-* **Optional**: [`sentence_transformers`](https://www.sbert.net/) enables an
-  embedding-based ML fallback when rule-based parsing fails.
+* **Optional**: [`sentence_transformers`](https://www.sbert.net/) provides
+  transformer-based embeddings. When it's unavailable, a simpler
+  `TfidfVectorizer` from `scikit-learn` is used with reduced accuracy.
 
 ## Installation
 
@@ -64,7 +65,10 @@ print(result)
 ```
 
 The example above generates and executes Python code even when no
-rule-based template matches the query.
+rule-based template matches the query. When the
+`sentence_transformers` library is not available, this mode uses a
+simple TF-IDF vectorizer instead of transformer embeddings, so matches
+may be less accurate.
 
 ## Training
 
@@ -76,7 +80,10 @@ python scripts/train_parser.py --dataset datasets/commands.json --output models/
 ```
 
 The script trains a sentence-transformer model, saves it to the specified
-path and reports accuracy on the provided dataset.
+path and reports accuracy on the provided dataset. If the
+`sentence_transformers` package is missing, the training script falls back
+to a simple TF-IDF model. This lightweight backend is easier to install but
+offers much weaker semantic matching and generally lower accuracy.
 
 ## Prompt design
 
